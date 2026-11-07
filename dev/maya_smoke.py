@@ -458,8 +458,13 @@ def run_inside_maya() -> None:
         def close_menu() -> None:
             for menu in window.terminal.findChildren(QMenu):
                 if menu.isVisible():
+                    items = [
+                        f"{a.text()}{'*' if a.isCheckable() else ''}"
+                        for a in menu.actions()
+                        if not a.isSeparator()
+                    ]
                     menu.close()
-                    _log("context menu shown and closed")
+                    _log(f"context menu shown and closed; items={items}")
 
         QTimer.singleShot(400, close_menu)
         try:

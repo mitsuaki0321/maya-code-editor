@@ -217,7 +217,6 @@ body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
-  min-width: 100px;
   max-width: 200px;
   border-right: 1px solid var(--border);
   color: var(--muted);

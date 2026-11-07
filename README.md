@@ -29,7 +29,7 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 | 複数選択 | Ctrl+クリック / Shift+クリック |
 | 移動 | 中ボタンでドラッグしてフォルダへ（空白にドロップでルート） |
 | ターミナル表示切替 | ツールバーの Terminal |
-| Echo All Commands / Show Stack Trace | ターミナル上部の History メニュー |
+| Echo All Commands / Show Stack Trace | ターミナルの右クリックメニュー |
 
 エディタ内の操作（検索置換、マルチカーソル、折りたたみ、行移動など）は VS Code と同じキーバインド。
 

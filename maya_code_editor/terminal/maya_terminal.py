@@ -12,7 +12,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCursor, QFontDatabase
-from PySide6.QtWidgets import QMenu, QMenuBar, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
 
 from ..bridge import config
 
@@ -31,12 +31,16 @@ HIDDEN_WINDOW_NAME = "mayaCodeEditorReporterWindow"
 
 
 class MayaTerminal(QWidget):
-    """Widget embedding Maya's ``cmdScrollFieldReporter`` under a History menu.
+    """Widget embedding Maya's ``cmdScrollFieldReporter``.
+
+    The right-click menu carries the Script Editor's History toggles
+    (Echo All Commands, Show Stack Trace) next to Copy / Clear, so the
+    pane itself stays free of chrome.
 
     Args:
         parent: Parent widget.
-        echo_all_commands: Initial state of the History > Echo All Commands toggle.
-        show_stack_trace: Initial state of the History > Show Stack Trace toggle.
+        echo_all_commands: Initial state of the Echo All Commands toggle.
+        show_stack_trace: Initial state of the Show Stack Trace toggle.
     """
 
     def __init__(
@@ -49,39 +53,23 @@ class MayaTerminal(QWidget):
         self.reporter: Optional[str] = None
         self.hidden_window: Optional[str] = None
         self.reporter_widget: Optional[QWidget] = None
-        self.echo_action: Optional[QAction] = None
-        self.stack_trace_action: Optional[QAction] = None
         self._echo_all_commands = echo_all_commands
         self._show_stack_trace = show_stack_trace
+
+        # Checkable actions live on the widget so the context menu can reuse them.
+        self.echo_action = QAction("Echo All Commands", self, checkable=True)
+        self.echo_action.setChecked(echo_all_commands)
+        self.echo_action.toggled.connect(self.set_echo_all_commands)
+        self.stack_trace_action = QAction("Show Stack Trace", self, checkable=True)
+        self.stack_trace_action.setChecked(show_stack_trace)
+        self.stack_trace_action.toggled.connect(self.set_show_stack_trace)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         if MAYA_AVAILABLE:
-            layout.setMenuBar(self._build_menu_bar())
             self._setup_reporter(layout)
-
-    def _build_menu_bar(self) -> QMenuBar:
-        """Build the Script Editor style ``History`` menu."""
-        bar = QMenuBar(self)
-        history = bar.addMenu("History")
-
-        self.echo_action = QAction("Echo All Commands", history, checkable=True)
-        self.echo_action.setChecked(self._echo_all_commands)
-        self.echo_action.toggled.connect(self.set_echo_all_commands)
-        history.addAction(self.echo_action)
-
-        self.stack_trace_action = QAction("Show Stack Trace", history, checkable=True)
-        self.stack_trace_action.setChecked(self._show_stack_trace)
-        self.stack_trace_action.toggled.connect(self.set_show_stack_trace)
-        history.addAction(self.stack_trace_action)
-
-        history.addSeparator()
-        clear_action = QAction("Clear History", history)
-        clear_action.triggered.connect(self.clear)
-        history.addAction(clear_action)
-        return bar
 
     def set_echo_all_commands(self, enabled: bool) -> None:
         """Apply the Echo All Commands toggle to the reporter and remember it."""
@@ -159,7 +147,7 @@ class MayaTerminal(QWidget):
         return self.reporter_widget
 
     def _show_context_menu(self, position) -> None:
-        """Show a Copy / Clear menu at the mouse cursor.
+        """Show the Copy / Clear / History menu at the mouse cursor.
 
         Args:
             position: Reporter-local click position (unused; the cursor
@@ -173,10 +161,13 @@ class MayaTerminal(QWidget):
         copy_action.triggered.connect(self.copy_selection)
         menu.addAction(copy_action)
 
-        menu.addSeparator()
-        clear_action = QAction("Clear", menu)
+        clear_action = QAction("Clear History", menu)
         clear_action.triggered.connect(self.clear)
         menu.addAction(clear_action)
+
+        menu.addSeparator()
+        menu.addAction(self.echo_action)
+        menu.addAction(self.stack_trace_action)
 
         menu.exec(QCursor.pos())
 
