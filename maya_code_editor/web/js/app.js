@@ -109,11 +109,19 @@
 
     // -- actions -------------------------------------------------------
 
+    /** Run the selection if there is one, otherwise the whole buffer (Script Editor behaviour). */
     async function runActive() {
       const tab = tabs.activeTab;
       if (!tab) return;
-      const ok = await bridge.runCode(tab.model.getValue());
+      const selection = editor.getSelection();
+      const code = selection && !selection.isEmpty() ? tab.model.getValueInRange(selection) : tab.model.getValue();
+      const ok = await bridge.runCode(code);
       if (!ok) setStatus("execution failed (see terminal)");
+    }
+
+    async function toggleTerminal() {
+      const visible = await bridge.toggleTerminal();
+      document.getElementById("terminal-button").classList.toggle("off", !visible);
     }
 
     async function saveActive() {
@@ -123,6 +131,7 @@
     document.getElementById("run-button").addEventListener("click", runActive);
     document.getElementById("save-button").addEventListener("click", saveActive);
     document.getElementById("new-button").addEventListener("click", function () { tabs.newUntitled(); });
+    document.getElementById("terminal-button").addEventListener("click", toggleTerminal);
     document.getElementById("refresh-button").addEventListener("click", function () { tree.refresh(); });
 
     const K = monaco.KeyMod, C = monaco.KeyCode;
@@ -144,7 +153,7 @@
 
     setupGutter();
     emptyState.hidden = false;
-    window.app = { bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, runActive: runActive, saveActive: saveActive };
+    window.app = { bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, runActive: runActive, saveActive: saveActive, toggleTerminal: toggleTerminal };
     bridge.log("monaco ready");
   }
 

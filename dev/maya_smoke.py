@@ -64,6 +64,10 @@ def _check_deleted() -> str:
     return "renamed.py exists=%s" % (WORKSPACE / "renamed.py").exists()
 
 
+# The live editor window, set by the drivers so Python-side checks can reach it.
+_WINDOW: dict = {"ref": None}
+
+
 STEPS: list[Step] = [
     (
         "status",
@@ -112,6 +116,21 @@ STEPS: list[Step] = [
         None,
     ),
     ("run", "app.runActive().then(() => 'dispatched')", None),
+    (
+        "run-selection",
+        "(app.editor.setSelection(new app.monaco.Range(2, 1, 2, 1000)), app.runActive().then(() => ({selected: app.editor.getModel().getValueInRange(app.editor.getSelection())})))",
+        None,
+    ),
+    (
+        "terminal-hide",
+        "app.toggleTerminal().then(() => ({buttonOff: document.getElementById('terminal-button').classList.contains('off')}))",
+        lambda: "terminal visible=%s" % _WINDOW["ref"].terminal.isVisible(),
+    ),
+    (
+        "terminal-show",
+        "app.toggleTerminal().then(() => ({buttonOff: document.getElementById('terminal-button').classList.contains('off')}))",
+        lambda: "terminal visible=%s" % _WINDOW["ref"].terminal.isVisible(),
+    ),
     (
         "delete",
         "app.bridge.files.remove(app.workspace.root + '/renamed.py').then(() => app.tree.refresh()).then(() => Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent))",
@@ -236,9 +255,31 @@ def run_inside_maya() -> None:
         QTimer.singleShot(1000, quit_maya)
         return
 
+    _WINDOW["ref"] = window
     page = window.web_view.page()
     page.loadFinished.connect(lambda ok: _log(f"loadFinished ok={ok}"))
     run_js = _make_run_js(page, legacy_signature=True)
+
+    def check_history_menu() -> None:
+        """Toggle the History menu items and read the reporter flags back."""
+        terminal = window.terminal
+        try:
+            before = cmds.cmdScrollFieldReporter(
+                terminal.reporter, query=True, echoAllCommands=True
+            )
+            terminal.echo_action.setChecked(True)
+            after = cmds.cmdScrollFieldReporter(
+                terminal.reporter, query=True, echoAllCommands=True
+            )
+            terminal.echo_action.setChecked(False)
+            trace = cmds.cmdScrollFieldReporter(
+                terminal.reporter, query=True, stackTrace=True
+            )
+            _log(
+                f"history menu: echo default={before} after toggle={after}; stackTrace default={trace}"
+            )
+        except Exception:
+            _log("history menu FAILED\n" + traceback.format_exc())
 
     def check_context_menu() -> None:
         """Open the terminal context menu (closed by a timer) to catch stale wrappers."""
@@ -262,6 +303,7 @@ def run_inside_maya() -> None:
             _log("context menu FAILED\n" + traceback.format_exc())
 
     def finish() -> None:
+        check_history_menu()
         check_context_menu()
         try:
             text = cmds.cmdScrollFieldReporter(
@@ -307,6 +349,7 @@ def run_standalone() -> int:
         f"window ok; terminal={type(window.terminal).__name__} workspace={window.workspace_root}"
     )
 
+    _WINDOW["ref"] = window
     page = window.web_view.page()
     run_js = _make_run_js(page, legacy_signature=False)
 

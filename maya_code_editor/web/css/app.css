@@ -63,6 +63,7 @@ button {
 
 #toolbar #run-button { background: var(--accent); color: #fff; }
 #toolbar #run-button:hover { background: var(--accent-hover); }
+#toolbar #terminal-button.off { color: var(--muted); text-decoration: line-through; }
 
 #status {
   margin-left: auto;

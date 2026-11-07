@@ -53,6 +53,7 @@ class MayaCodeEditorWindow(QWidget):
         self.web_view = QWebEngineView(self)
         self.channel = QWebChannel(self.web_view.page())
         self.bridge = EditorBridge(self.executor, self.workspace_root, self)
+        self.bridge.set_terminal_toggle(self.toggle_terminal)
         self.channel.registerObject("bridge", self.bridge)
         self.web_view.page().setWebChannel(self.channel)
 
@@ -81,6 +82,16 @@ class MayaCodeEditorWindow(QWidget):
             return
         self._page_loaded = True
         self.web_view.load(QUrl.fromLocalFile(str(INDEX_HTML)))
+
+    def toggle_terminal(self) -> bool:
+        """Show or hide the terminal pane.
+
+        Returns:
+            True if the terminal is visible after the call.
+        """
+        visible = not self.terminal.isVisible()
+        self.terminal.setVisible(visible)
+        return visible
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
         """Release Maya-side resources when the widget closes."""

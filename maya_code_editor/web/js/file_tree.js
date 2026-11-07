@@ -154,6 +154,7 @@ class FileTree {
       items.push({ label: "Delete", danger: true, action: () => this._delete(target) });
     }
     items.push({ separator: true });
+    items.push({ label: "Reveal in Explorer", action: () => this._reveal(target.path) });
     items.push({ label: "Refresh", action: () => this.refresh() });
     this._showMenu(event.clientX, event.clientY, items);
   }
@@ -226,6 +227,14 @@ class FileTree {
       this.expanded.delete(target.path);
       this.handlers.onDeleted(target.path, target.isDir);
       await this.refresh();
+    } catch (err) {
+      Dialogs.error(err.message);
+    }
+  }
+
+  async _reveal(path) {
+    try {
+      await this.files.reveal(path);
     } catch (err) {
       Dialogs.error(err.message);
     }

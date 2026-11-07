@@ -12,7 +12,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCursor, QFontDatabase
-from PySide6.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMenu, QMenuBar, QSizePolicy, QVBoxLayout, QWidget
 
 logger = getLogger(__name__)
 
@@ -27,22 +27,62 @@ except ImportError:
 
 HIDDEN_WINDOW_NAME = "mayaCodeEditorReporterWindow"
 
+# Script Editor "History" menu defaults.
+DEFAULT_ECHO_ALL_COMMANDS = False
+DEFAULT_SHOW_STACK_TRACE = True
+
 
 class MayaTerminal(QWidget):
-    """Widget embedding Maya's ``cmdScrollFieldReporter``."""
+    """Widget embedding Maya's ``cmdScrollFieldReporter`` under a History menu."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.reporter: Optional[str] = None
         self.hidden_window: Optional[str] = None
         self.reporter_widget: Optional[QWidget] = None
+        self.echo_action: Optional[QAction] = None
+        self.stack_trace_action: Optional[QAction] = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         if MAYA_AVAILABLE:
+            layout.setMenuBar(self._build_menu_bar())
             self._setup_reporter(layout)
+
+    def _build_menu_bar(self) -> QMenuBar:
+        """Build the Script Editor style ``History`` menu."""
+        bar = QMenuBar(self)
+        history = bar.addMenu("History")
+
+        self.echo_action = QAction("Echo All Commands", history, checkable=True)
+        self.echo_action.setChecked(DEFAULT_ECHO_ALL_COMMANDS)
+        self.echo_action.toggled.connect(self.set_echo_all_commands)
+        history.addAction(self.echo_action)
+
+        self.stack_trace_action = QAction("Show Stack Trace", history, checkable=True)
+        self.stack_trace_action.setChecked(DEFAULT_SHOW_STACK_TRACE)
+        self.stack_trace_action.toggled.connect(self.set_show_stack_trace)
+        history.addAction(self.stack_trace_action)
+
+        history.addSeparator()
+        clear_action = QAction("Clear History", history)
+        clear_action.triggered.connect(self.clear)
+        history.addAction(clear_action)
+        return bar
+
+    def set_echo_all_commands(self, enabled: bool) -> None:
+        """Mirror the Script Editor's Echo All Commands toggle onto the reporter."""
+        if self._reporter_exists():
+            cmds.cmdScrollFieldReporter(
+                self.reporter, edit=True, echoAllCommands=enabled
+            )
+
+    def set_show_stack_trace(self, enabled: bool) -> None:
+        """Mirror the Script Editor's Show Stack Trace toggle onto the reporter."""
+        if self._reporter_exists():
+            cmds.cmdScrollFieldReporter(self.reporter, edit=True, stackTrace=enabled)
 
     def _setup_reporter(self, layout: QVBoxLayout) -> None:
         """Create the reporter in a hidden Maya window and reparent its Qt widget."""
@@ -55,14 +95,14 @@ class MayaTerminal(QWidget):
             parent=maya_layout,
             width=400,
             height=150,
-            echoAllCommands=False,
+            echoAllCommands=DEFAULT_ECHO_ALL_COMMANDS,
             suppressErrors=False,
             suppressWarnings=False,
             suppressInfo=False,
             suppressResults=False,
             suppressStackTrace=False,
             lineNumbers=False,
-            stackTrace=True,
+            stackTrace=DEFAULT_SHOW_STACK_TRACE,
             filterSourceType="",
         )
 

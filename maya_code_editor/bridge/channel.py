@@ -13,7 +13,7 @@ import platform
 import sys
 from logging import getLogger
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from PySide6.QtCore import QObject, Slot
 
@@ -35,6 +35,24 @@ class EditorBridge(QObject):
         super().__init__(parent)
         self._executor = executor
         self._root = workspace_root
+        self._terminal_toggle: Optional[Callable[[], bool]] = None
+
+    def set_terminal_toggle(self, toggle: Callable[[], bool]) -> None:
+        """Register the Qt-side callback that toggles the terminal pane.
+
+        Args:
+            toggle: Callable that flips visibility and returns the new state.
+        """
+        self._terminal_toggle = toggle
+
+    # -- terminal --------------------------------------------------------
+
+    @Slot(result=bool)
+    def toggle_terminal(self) -> bool:
+        """Toggle the terminal pane. Returns True if it is visible afterwards."""
+        if self._terminal_toggle is None:
+            return True
+        return self._terminal_toggle()
 
     # -- environment -----------------------------------------------------
 
@@ -107,6 +125,11 @@ class EditorBridge(QObject):
     def delete_path(self, path: str) -> str:
         """Delete a file or folder. See :func:`files.delete_path`."""
         return files.delete_path(self._root, path).to_json()
+
+    @Slot(str, result=str)
+    def reveal_path(self, path: str) -> str:
+        """Show a file or folder in the OS file manager. See :func:`files.reveal_path`."""
+        return files.reveal_path(self._root, path).to_json()
 
     # -- logging ---------------------------------------------------------
 

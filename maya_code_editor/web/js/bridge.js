@@ -26,6 +26,7 @@ const MayaBridge = (function () {
       ping: function () { return call(raw, "ping").then(JSON.parse); },
       getWorkspace: function () { return call(raw, "get_workspace").then(JSON.parse); },
       runCode: function (code) { return call(raw, "run_code", code); },
+      toggleTerminal: function () { return call(raw, "toggle_terminal"); },
       log: function (message) { raw.log(message); },
       files: {
         listDir: function (path) { return fileCall(raw, "list_dir", path); },
@@ -35,6 +36,7 @@ const MayaBridge = (function () {
         createFolder: function (dir, name) { return fileCall(raw, "create_folder", dir, name); },
         rename: function (path, newName) { return fileCall(raw, "rename_path", path, newName); },
         remove: function (path) { return fileCall(raw, "delete_path", path); },
+        reveal: function (path) { return fileCall(raw, "reveal_path", path); },
       },
     };
   }

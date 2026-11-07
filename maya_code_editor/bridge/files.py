@@ -8,7 +8,10 @@ validated to stay inside the workspace root.
 from __future__ import annotations
 
 import json
+import os
+import platform
 import shutil
+import subprocess
 from dataclasses import dataclass, field
 from logging import getLogger
 from pathlib import Path
@@ -157,6 +160,32 @@ def rename_path(root: Path, raw_path: str, new_name: str) -> FileResult:
     except OSError as exc:
         return _fail(f"Cannot rename {path}: {exc}")
     return FileResult(ok=True, data=target.as_posix())
+
+
+def reveal_path(root: Path, raw_path: str) -> FileResult:
+    """Open the OS file manager at ``raw_path``.
+
+    A file is shown selected inside its folder; a folder is opened directly.
+    """
+    path = _resolve_inside(root, raw_path)
+    if path is None or not path.exists():
+        return _fail(f"Cannot reveal: {raw_path}")
+    system = platform.system()
+    try:
+        if system == "Windows":
+            if path.is_dir():
+                os.startfile(str(path))  # noqa: S606 - opening a folder
+            else:
+                subprocess.Popen(["explorer", "/select,", str(path)])
+        elif system == "Darwin":
+            args = ["open", "-R", str(path)] if path.is_file() else ["open", str(path)]
+            subprocess.Popen(args)
+        else:
+            target = path if path.is_dir() else path.parent
+            subprocess.Popen(["xdg-open", str(target)])
+    except OSError as exc:
+        return _fail(f"Cannot reveal {path}: {exc}")
+    return FileResult(ok=True, data=path.as_posix())
 
 
 def delete_path(root: Path, raw_path: str) -> FileResult:
