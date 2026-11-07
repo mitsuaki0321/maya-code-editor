@@ -11,7 +11,7 @@ from logging import getLogger
 from typing import Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFontDatabase
+from PySide6.QtGui import QAction, QCursor, QFontDatabase
 from PySide6.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
 
 logger = getLogger(__name__)
@@ -19,7 +19,7 @@ logger = getLogger(__name__)
 try:
     import maya.cmds as cmds  # type: ignore
     import maya.OpenMayaUI as omui  # type: ignore
-    from shiboken6 import wrapInstance
+    from shiboken6 import isValid, wrapInstance
 
     MAYA_AVAILABLE = True
 except ImportError:
@@ -86,9 +86,31 @@ class MayaTerminal(QWidget):
         widget.setVisible(True)
         self.reporter_widget = widget
 
+    def reporter_qwidget(self) -> Optional[QWidget]:
+        """Return a live Python wrapper for the reporter's Qt widget.
+
+        The wrapper created at setup can be reported as "already deleted" by
+        shiboken even though the Maya control is alive, so re-wrap from the
+        control name whenever the cached wrapper is invalid.
+        """
+        if self.reporter_widget is not None and isValid(self.reporter_widget):
+            return self.reporter_widget
+        if not self._reporter_exists():
+            return None
+        ptr = omui.MQtUtil.findControl(self.reporter)
+        if not ptr:
+            return None
+        self.reporter_widget = wrapInstance(int(ptr), QWidget)
+        return self.reporter_widget
+
     def _show_context_menu(self, position) -> None:
-        """Show a Copy / Clear menu at ``position`` (reporter-local coordinates)."""
-        if self.reporter_widget is None:
+        """Show a Copy / Clear menu at the mouse cursor.
+
+        Args:
+            position: Reporter-local click position (unused; the cursor
+                position is used so a stale widget wrapper cannot break it).
+        """
+        if not self._reporter_exists():
             return
         menu = QMenu(self)
 
@@ -101,7 +123,7 @@ class MayaTerminal(QWidget):
         clear_action.triggered.connect(self.clear)
         menu.addAction(clear_action)
 
-        menu.exec(self.reporter_widget.mapToGlobal(position))
+        menu.exec(QCursor.pos())
 
     def _reporter_exists(self) -> bool:
         """Return True if the Maya reporter control is still alive."""
