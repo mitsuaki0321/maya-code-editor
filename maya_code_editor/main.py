@@ -7,8 +7,7 @@ The window is a vertical ``QSplitter`` with two panes:
   ``cmdScrollFieldReporter`` so output matches the Script Editor;
   outside Maya it is a ``QPlainTextEdit`` capturing stdout/stderr.
 
-Importing ``QtWebEngineWidgets`` happens at module import time so that the
-WebEngine process is initialised before any view is created.
+Qt names come from :mod:`maya_code_editor.qt`, which picks PySide6 or PySide2.
 """
 
 from __future__ import annotations
@@ -17,15 +16,20 @@ from logging import getLogger
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QUrl, Qt
-from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
-
 from .bridge import config
 from .bridge.channel import EditorBridge
 from .bridge.execution import PythonExecutor
 from .bridge.workspace import resolve_workspace_root
+from .qt import (
+    QSplitter,
+    Qt,
+    QUrl,
+    QVBoxLayout,
+    QWebChannel,
+    QWebEngineView,
+    QWidget,
+    isValid,
+)
 from .terminal import create_terminal
 
 logger = getLogger(__name__)
@@ -149,16 +153,7 @@ def _is_alive(widget: Optional[QWidget]) -> bool:
     """Return True if ``widget`` exists and its C++ object is still valid."""
     if widget is None:
         return False
-    try:
-        from shiboken6 import isValid
-
-        return bool(isValid(widget))
-    except ImportError:
-        try:
-            widget.isVisible()
-            return True
-        except RuntimeError:
-            return False
+    return bool(isValid(widget))
 
 
 def show_ui() -> MayaCodeEditorWindow:

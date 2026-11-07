@@ -3,7 +3,8 @@
 Monaco Editor を QWebEngineView に載せた Maya 用の Python スクリプトエディタ。
 エディタ機能は Monaco 標準に任せ、自前で書くのは Maya 統合とファイル・タブ・セッションの最小限だけ。
 
-対象: Maya 2025 以降（PySide6 / QtWebEngine 同梱）。
+対象: Maya 2023 以降。PySide6（2025+）と PySide2（2023 / 2024）の両方に対応し、Qt の違いは `maya_code_editor/qt.py` で吸収している。
+同梱の Monaco は 0.44.0。Maya 2023 / 2024 の QtWebEngine（Chromium 83 / 87）で動く最新版で、それより新しい Monaco は読み込めない。
 
 ## 起動
 
@@ -54,6 +55,7 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 
 ```
 python dev/maya_smoke.py              # Maya 2025 を起動して自動検証（ログは dev/out/）
+python dev/maya_smoke.py --maya 2023  # 他のバージョンで検証
 python dev/maya_smoke.py --standalone # Maya なしで同じ手順
 ```
 
@@ -65,6 +67,7 @@ python dev/maya_smoke.py --standalone # Maya なしで同じ手順
 ```
 maya_code_editor/
 ├── main.py          QSplitter(WebView + ターミナル)、show_ui()、セッション保存
+├── qt.py            PySide6 / PySide2 の切り替えシム
 ├── bridge/          QWebChannel で JS に公開する Python API
 │   ├── channel.py   スロット定義（薄いラッパー）
 │   ├── files.py     ワークスペース内のファイル操作

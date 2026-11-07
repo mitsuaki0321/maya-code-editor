@@ -10,18 +10,26 @@ from __future__ import annotations
 from logging import getLogger
 from typing import Optional
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QCursor, QFontDatabase
-from PySide6.QtWidgets import QMenu, QSizePolicy, QVBoxLayout, QWidget
-
 from ..bridge import config
+from ..qt import (
+    QAction,
+    QCursor,
+    QFontDatabase,
+    QMenu,
+    QSizePolicy,
+    Qt,
+    QVBoxLayout,
+    QWidget,
+    exec_,
+    isValid,
+    wrapInstance,
+)
 
 logger = getLogger(__name__)
 
 try:
     import maya.cmds as cmds  # type: ignore
     import maya.OpenMayaUI as omui  # type: ignore
-    from shiboken6 import isValid, wrapInstance
 
     MAYA_AVAILABLE = True
 except ImportError:
@@ -169,7 +177,7 @@ class MayaTerminal(QWidget):
         menu.addAction(self.echo_action)
         menu.addAction(self.stack_trace_action)
 
-        menu.exec(QCursor.pos())
+        exec_(menu, QCursor.pos())
 
     def _reporter_exists(self) -> bool:
         """Return True if the Maya reporter control is still alive."""

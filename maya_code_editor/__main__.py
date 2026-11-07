@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication
-
 from .main import MayaCodeEditorWindow
+from .qt import QApplication, exec_
 
 
 def main() -> int:
@@ -26,7 +25,7 @@ def main() -> int:
     window.resize(1000, 700)
     window.show()
     window.load_page()
-    return app.exec()
+    return exec_(app)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ The same file is executed inside Maya (via ``exec``) to drive the test.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import shutil
@@ -27,6 +28,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 REPO = Path(__file__).resolve().parent.parent
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+from maya_code_editor.qt import BINDING, exec_  # noqa: E402
+
 OUT_DIR = REPO / "dev" / "out"
 LOG = OUT_DIR / "maya_smoke.log"
 PNG = OUT_DIR / "maya_smoke.png"
@@ -252,8 +257,9 @@ def _check_real_mmb_drag(window, run_js: Callable, on_done: Callable[[], None]) 
     confirms that QtWebEngine delivers middle-button presses to the page
     without Chromium's autoscroll swallowing them.
     """
-    from PySide6.QtCore import QPoint, Qt, QTimer
-    from PySide6.QtTest import QTest
+    from maya_code_editor.qt import QPoint, Qt, QTimer
+
+    QTest = importlib.import_module(BINDING + ".QtTest").QTest
 
     def got(value) -> None:
         try:
@@ -299,7 +305,7 @@ def _verify_restore(
     make_window: Callable, legacy_signature: bool, on_done: Callable[[], None]
 ) -> None:
     """Open a second window and log what it restored from session.json."""
-    from PySide6.QtCore import QTimer
+    from maya_code_editor.qt import QTimer
 
     window2 = make_window()
     _WINDOW["restore_ref"] = window2  # keep alive
@@ -329,7 +335,7 @@ class StepRunner:
     """Drive the page through STEPS with runJavaScript polling."""
 
     def __init__(self, page, run_js: Callable, on_done: Callable[[], None]) -> None:
-        from PySide6.QtCore import QTimer
+        from maya_code_editor.qt import QTimer
 
         self._page = page
         self._run_js = run_js
@@ -393,8 +399,8 @@ def _make_run_js(page, legacy_signature: bool) -> Callable:
 def run_inside_maya() -> None:
     """Drive the editor inside Maya and write log / screenshot."""
     import maya.cmds as cmds  # type: ignore
-    from PySide6.QtCore import QTimer
-    from PySide6.QtGui import QGuiApplication
+    from maya_code_editor.qt import QTimer
+    from maya_code_editor.qt import QGuiApplication
 
     _prepare_workspace()
     LOG.write_text("", encoding="utf-8")
@@ -449,8 +455,8 @@ def run_inside_maya() -> None:
 
     def check_context_menu() -> None:
         """Open the terminal context menu (closed by a timer) to catch stale wrappers."""
-        from PySide6.QtCore import QPoint
-        from PySide6.QtWidgets import QMenu
+        from maya_code_editor.qt import QPoint
+        from maya_code_editor.qt import QMenu
 
         widget = window.terminal.reporter_qwidget()
         _log(f"reporter widget valid={widget is not None}")
@@ -500,7 +506,7 @@ def run_inside_maya() -> None:
             w.load_page()
             return w
 
-        from PySide6.QtCore import Qt
+        from maya_code_editor.qt import Qt
 
         _check_real_mmb_drag(
             window,
@@ -518,9 +524,9 @@ def run_inside_maya() -> None:
 
 def run_standalone() -> int:
     """Drive the editor in a plain QApplication (no Maya)."""
-    from PySide6.QtCore import QTimer
-    from PySide6.QtGui import QGuiApplication
-    from PySide6.QtWidgets import QApplication
+    from maya_code_editor.qt import QTimer
+    from maya_code_editor.qt import QGuiApplication
+    from maya_code_editor.qt import QApplication
 
     _prepare_workspace()
     LOG.write_text("", encoding="utf-8")
@@ -567,7 +573,7 @@ def run_standalone() -> int:
     runner = StepRunner(page, run_js, finish)
     QTimer.singleShot(3000, runner.start)
     QTimer.singleShot(90000, app.quit)
-    code = app.exec()
+    code = exec_(app)
     print(LOG.read_text(encoding="utf-8"))
     return code
 

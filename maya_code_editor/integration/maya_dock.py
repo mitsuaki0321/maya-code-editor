@@ -10,14 +10,13 @@ import contextlib
 from logging import getLogger
 from typing import Optional
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from ..qt import QVBoxLayout, QWidget, wrapInstance
 
 logger = getLogger(__name__)
 
 try:
     import maya.cmds as cmds  # type: ignore
     import maya.OpenMayaUI as omui  # type: ignore
-    from shiboken6 import wrapInstance
 
     MAYA_AVAILABLE = True
 except ImportError:

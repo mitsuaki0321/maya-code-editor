@@ -10,8 +10,14 @@ from __future__ import annotations
 import sys
 from typing import Callable, Optional, TextIO
 
-from PySide6.QtGui import QColor, QFontDatabase, QTextCharFormat, QTextCursor
-from PySide6.QtWidgets import QPlainTextEdit, QWidget
+from ..qt import (
+    QColor,
+    QFontDatabase,
+    QPlainTextEdit,
+    QTextCharFormat,
+    QTextCursor,
+    QWidget,
+)
 
 MAX_BLOCKS = 2000
 

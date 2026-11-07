@@ -15,8 +15,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Callable, Optional
 
-from PySide6.QtCore import QObject, Slot
-
+from ..qt import QObject, Slot
 from . import config, files
 from .execution import PythonExecutor
 

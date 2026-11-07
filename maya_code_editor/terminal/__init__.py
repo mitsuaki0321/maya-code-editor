@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional, Protocol
 
-from PySide6.QtWidgets import QWidget
+from ..qt import QWidget
 
 try:
     import maya.cmds  # type: ignore  # noqa: F401

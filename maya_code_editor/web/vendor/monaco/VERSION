@@ -1,1 +1,1 @@
-monaco-editor 0.57.0 (min/vs from npm package)
+monaco-editor 0.44.0 (min/vs from npm package). Chosen for Maya 2023/2024 (QtWebEngine 5.15, Chromium 83/87): 0.47+ needs WeakRef, 0.52+ needs newer syntax.
