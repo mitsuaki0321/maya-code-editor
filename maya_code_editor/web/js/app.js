@@ -1,6 +1,6 @@
 /**
  * Startup: connect the bridge, load Monaco, build the explorer and tabs,
- * wire the toolbar and keyboard shortcuts.
+ * wire the toolbar and keyboard shortcuts, restore and persist the session.
  *
  * `window.app` exposes the live objects for debugging and for the
  * automated smoke test (dev/maya_smoke.py).
@@ -8,6 +8,7 @@
 (function () {
   const statusEl = document.getElementById("status");
   const emptyState = document.getElementById("empty-state");
+  const sidebar = document.getElementById("sidebar");
 
   function setStatus(text) {
     statusEl.textContent = text;
@@ -24,24 +25,25 @@
     });
   }
 
-  function createEditor(monaco) {
+  function createEditor(monaco, editorSettings) {
+    const s = editorSettings || {};
     return monaco.editor.create(document.getElementById("editor"), {
       model: null,
       theme: "vs-dark",
       automaticLayout: true,
-      fontSize: 13,
-      tabSize: 4,
+      fontSize: s.fontSize || 13,
+      tabSize: s.tabSize || 4,
+      wordWrap: s.wordWrap || "off",
       insertSpaces: true,
-      minimap: { enabled: false },
+      minimap: { enabled: !!s.minimap },
       mouseWheelZoom: true,
       scrollBeyondLastLine: false,
       renderLineHighlight: "all",
     });
   }
 
-  function setupGutter() {
+  function setupGutter(onResized) {
     const gutter = document.getElementById("gutter");
-    const sidebar = document.getElementById("sidebar");
     gutter.addEventListener("mousedown", function (e) {
       e.preventDefault();
       gutter.classList.add("dragging");
@@ -54,6 +56,7 @@
         gutter.classList.remove("dragging");
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
+        onResized();
       }
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
@@ -80,20 +83,51 @@
       setStatus("failed to load Monaco: " + (err && err.message));
       return;
     }
-    const editor = createEditor(monaco);
+    const settings = await bridge.getSettings();
+    const session = await bridge.getSession();
+    const editor = createEditor(monaco, settings.editor);
     const workspace = await bridge.getWorkspace();
     document.getElementById("workspace-name").textContent = workspace.name;
     document.getElementById("workspace-name").title = workspace.root;
+
+    // -- session persistence ------------------------------------------
+
+    let restoring = true;
+    let saveTimer = null;
+
+    function sessionState() {
+      const state = tabs.sessionState();
+      state.layout = { sidebarWidth: Math.round(sidebar.getBoundingClientRect().width) };
+      return state;
+    }
+
+    function saveSessionNow() {
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      bridge.saveSession(sessionState());
+    }
+
+    function scheduleSessionSave() {
+      if (restoring) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveSessionNow, 500);
+    }
+
+    // -- tabs and tree -------------------------------------------------
 
     let tree;
     const tabs = new Tabs(document.getElementById("tab-bar"), monaco, editor, bridge.files, {
       onChange: function () {
         tree.setOpenPaths(tabs.openPaths());
+        scheduleSessionSave();
       },
       onActivate: function (tab) {
         emptyState.hidden = !!tab;
         if (tab && tab.path) tree.select(tab.path);
         setStatus(tab && tab.path ? tab.path : envLabel);
+        scheduleSessionSave();
+      },
+      onContentChange: function (tab) {
+        if (!tab.path) scheduleSessionSave(); // Untitled drafts are persisted as text
       },
     });
     tabs.workspaceRoot = workspace.root;
@@ -119,19 +153,29 @@
       if (!ok) setStatus("execution failed (see terminal)");
     }
 
-    async function toggleTerminal() {
-      const visible = await bridge.toggleTerminal();
+    async function saveActive() {
+      if (await tabs.save()) await tree.refresh();
+    }
+
+    function setTerminalButton(visible) {
       document.getElementById("terminal-button").classList.toggle("off", !visible);
     }
 
-    async function saveActive() {
-      if (await tabs.save()) await tree.refresh();
+    async function toggleTerminal() {
+      const visible = await bridge.toggleTerminal();
+      setTerminalButton(visible);
+      scheduleSessionSave();
+    }
+
+    function openSettings() {
+      bridge.openSettingsFile().catch(function (err) { Dialogs.error(err.message); });
     }
 
     document.getElementById("run-button").addEventListener("click", runActive);
     document.getElementById("save-button").addEventListener("click", saveActive);
     document.getElementById("new-button").addEventListener("click", function () { tabs.newUntitled(); });
     document.getElementById("terminal-button").addEventListener("click", toggleTerminal);
+    document.getElementById("settings-button").addEventListener("click", openSettings);
     document.getElementById("refresh-button").addEventListener("click", function () { tree.refresh(); });
 
     const K = monaco.KeyMod, C = monaco.KeyCode;
@@ -151,10 +195,21 @@
       else if (key === "enter") { e.preventDefault(); runActive(); }
     });
 
-    setupGutter();
-    emptyState.hidden = false;
-    window.app = { bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, runActive: runActive, saveActive: saveActive, toggleTerminal: toggleTerminal };
-    bridge.log("monaco ready");
+    // -- restore -------------------------------------------------------
+
+    const layout = (session && session.layout) || {};
+    if (layout.sidebarWidth > 0) sidebar.style.width = Math.max(120, layout.sidebarWidth) + "px";
+    setTerminalButton(layout.terminalVisible !== false);
+    setupGutter(scheduleSessionSave);
+    const restored = await tabs.restoreSession(session);
+    restoring = false;
+    emptyState.hidden = !!tabs.activeTab;
+
+    window.app = {
+      bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, settings: settings,
+      runActive: runActive, saveActive: saveActive, toggleTerminal: toggleTerminal, saveSessionNow: saveSessionNow, restoredTabs: restored,
+    };
+    bridge.log("monaco ready (restored " + restored + " tabs)");
   }
 
   main();

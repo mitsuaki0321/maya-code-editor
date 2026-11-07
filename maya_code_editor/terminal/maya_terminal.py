@@ -14,6 +14,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCursor, QFontDatabase
 from PySide6.QtWidgets import QMenu, QMenuBar, QSizePolicy, QVBoxLayout, QWidget
 
+from ..bridge import config
+
 logger = getLogger(__name__)
 
 try:
@@ -27,21 +29,30 @@ except ImportError:
 
 HIDDEN_WINDOW_NAME = "mayaCodeEditorReporterWindow"
 
-# Script Editor "History" menu defaults.
-DEFAULT_ECHO_ALL_COMMANDS = False
-DEFAULT_SHOW_STACK_TRACE = True
-
 
 class MayaTerminal(QWidget):
-    """Widget embedding Maya's ``cmdScrollFieldReporter`` under a History menu."""
+    """Widget embedding Maya's ``cmdScrollFieldReporter`` under a History menu.
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    Args:
+        parent: Parent widget.
+        echo_all_commands: Initial state of the History > Echo All Commands toggle.
+        show_stack_trace: Initial state of the History > Show Stack Trace toggle.
+    """
+
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        echo_all_commands: bool = False,
+        show_stack_trace: bool = True,
+    ) -> None:
         super().__init__(parent)
         self.reporter: Optional[str] = None
         self.hidden_window: Optional[str] = None
         self.reporter_widget: Optional[QWidget] = None
         self.echo_action: Optional[QAction] = None
         self.stack_trace_action: Optional[QAction] = None
+        self._echo_all_commands = echo_all_commands
+        self._show_stack_trace = show_stack_trace
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -57,12 +68,12 @@ class MayaTerminal(QWidget):
         history = bar.addMenu("History")
 
         self.echo_action = QAction("Echo All Commands", history, checkable=True)
-        self.echo_action.setChecked(DEFAULT_ECHO_ALL_COMMANDS)
+        self.echo_action.setChecked(self._echo_all_commands)
         self.echo_action.toggled.connect(self.set_echo_all_commands)
         history.addAction(self.echo_action)
 
         self.stack_trace_action = QAction("Show Stack Trace", history, checkable=True)
-        self.stack_trace_action.setChecked(DEFAULT_SHOW_STACK_TRACE)
+        self.stack_trace_action.setChecked(self._show_stack_trace)
         self.stack_trace_action.toggled.connect(self.set_show_stack_trace)
         history.addAction(self.stack_trace_action)
 
@@ -73,16 +84,20 @@ class MayaTerminal(QWidget):
         return bar
 
     def set_echo_all_commands(self, enabled: bool) -> None:
-        """Mirror the Script Editor's Echo All Commands toggle onto the reporter."""
+        """Apply the Echo All Commands toggle to the reporter and remember it."""
+        self._echo_all_commands = enabled
         if self._reporter_exists():
             cmds.cmdScrollFieldReporter(
                 self.reporter, edit=True, echoAllCommands=enabled
             )
+        config.update_setting("terminal", "echoAllCommands", enabled)
 
     def set_show_stack_trace(self, enabled: bool) -> None:
-        """Mirror the Script Editor's Show Stack Trace toggle onto the reporter."""
+        """Apply the Show Stack Trace toggle to the reporter and remember it."""
+        self._show_stack_trace = enabled
         if self._reporter_exists():
             cmds.cmdScrollFieldReporter(self.reporter, edit=True, stackTrace=enabled)
+        config.update_setting("terminal", "showStackTrace", enabled)
 
     def _setup_reporter(self, layout: QVBoxLayout) -> None:
         """Create the reporter in a hidden Maya window and reparent its Qt widget."""
@@ -95,14 +110,14 @@ class MayaTerminal(QWidget):
             parent=maya_layout,
             width=400,
             height=150,
-            echoAllCommands=DEFAULT_ECHO_ALL_COMMANDS,
+            echoAllCommands=self._echo_all_commands,
             suppressErrors=False,
             suppressWarnings=False,
             suppressInfo=False,
             suppressResults=False,
             suppressStackTrace=False,
             lineNumbers=False,
-            stackTrace=DEFAULT_SHOW_STACK_TRACE,
+            stackTrace=self._show_stack_trace,
             filterSourceType="",
         )
 

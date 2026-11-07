@@ -29,11 +29,14 @@ class Terminal(Protocol):
         """Release resources before the widget is destroyed."""
 
 
-def create_terminal(parent: Optional[QWidget] = None) -> QWidget:
+def create_terminal(
+    parent: Optional[QWidget] = None, settings: Optional[dict] = None
+) -> QWidget:
     """Create the terminal widget appropriate for the current environment.
 
     Args:
         parent: Parent widget.
+        settings: The ``terminal`` section of the user settings, if any.
 
     Returns:
         ``MayaTerminal`` inside Maya, ``FallbackTerminal`` otherwise.
@@ -41,7 +44,12 @@ def create_terminal(parent: Optional[QWidget] = None) -> QWidget:
     if MAYA_AVAILABLE:
         from .maya_terminal import MayaTerminal
 
-        return MayaTerminal(parent)
+        terminal_settings = settings or {}
+        return MayaTerminal(
+            parent,
+            echo_all_commands=bool(terminal_settings.get("echoAllCommands", False)),
+            show_stack_trace=bool(terminal_settings.get("showStackTrace", True)),
+        )
 
     from .fallback_terminal import FallbackTerminal
 

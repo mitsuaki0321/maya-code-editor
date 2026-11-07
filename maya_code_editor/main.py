@@ -22,6 +22,7 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
+from .bridge import config
 from .bridge.channel import EditorBridge
 from .bridge.execution import PythonExecutor
 from .bridge.workspace import resolve_workspace_root
@@ -47,13 +48,17 @@ class MayaCodeEditorWindow(QWidget):
         super().__init__(parent)
         self.setObjectName("MayaCodeEditorWindow")
 
+        self.settings = config.load_settings()
+        self._session = config.load_session()
+
         self.executor = PythonExecutor()
         self.workspace_root = resolve_workspace_root()
-        self.terminal = create_terminal(self)
+        self.terminal = create_terminal(self, self.settings.get("terminal"))
         self.web_view = QWebEngineView(self)
         self.channel = QWebChannel(self.web_view.page())
         self.bridge = EditorBridge(self.executor, self.workspace_root, self)
         self.bridge.set_terminal_toggle(self.toggle_terminal)
+        self.bridge.set_session_hooks(self.session_state, self.on_web_session)
         self.channel.registerObject("bridge", self.bridge)
         self.web_view.page().setWebChannel(self.channel)
 
@@ -62,7 +67,6 @@ class MayaCodeEditorWindow(QWidget):
         self.splitter.addWidget(self.terminal)
         self.splitter.setStretchFactor(0, 3)
         self.splitter.setStretchFactor(1, 1)
-        self.splitter.setSizes([500, 200])
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -70,6 +74,41 @@ class MayaCodeEditorWindow(QWidget):
         layout.addWidget(self.splitter)
 
         self._page_loaded = False
+        self._apply_layout(self._session.get("layout", {}))
+
+    # -- session ---------------------------------------------------------
+
+    def _apply_layout(self, layout: dict) -> None:
+        """Restore splitter sizes and terminal visibility from a saved layout."""
+        sizes = layout.get("splitterSizes")
+        if isinstance(sizes, list) and len(sizes) == 2 and all(s > 0 for s in sizes):
+            self.splitter.setSizes([int(s) for s in sizes])
+        else:
+            self.splitter.setSizes([500, 200])
+        self.terminal.setVisible(bool(layout.get("terminalVisible", True)))
+
+    def session_state(self) -> dict:
+        """Return the full session: page state plus the Qt-side layout."""
+        session = dict(self._session)
+        layout = dict(session.get("layout", {}))
+        sizes = self.splitter.sizes()
+        if self.terminal.isVisible() and all(s > 0 for s in sizes):
+            layout["splitterSizes"] = sizes
+        layout["terminalVisible"] = self.terminal.isVisible()
+        session["layout"] = layout
+        return session
+
+    def on_web_session(self, state: dict) -> None:
+        """Merge the page's state (tabs, drafts, sidebar width) and write the file."""
+        layout = dict(self._session.get("layout", {}))
+        layout.update(state.get("layout", {}))
+        self._session = dict(state)
+        self._session["layout"] = layout
+        self.save_session_now()
+
+    def save_session_now(self) -> None:
+        """Write the current session to ``session.json``."""
+        config.save_session(self.session_state())
 
     def load_page(self) -> None:
         """Load ``web/index.html`` into the web view.
@@ -94,7 +133,8 @@ class MayaCodeEditorWindow(QWidget):
         return visible
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
-        """Release Maya-side resources when the widget closes."""
+        """Save the session and release Maya-side resources when the widget closes."""
+        self.save_session_now()
         self.executor.cleanup()
         self.terminal.cleanup()
         super().closeEvent(event)
@@ -149,7 +189,24 @@ def show_ui() -> MayaCodeEditorWindow:
         _dock = MayaDock(_window)
         _dock.create_docked_widget()
         _window.load_page()
+        _install_exit_callback(_window)
     else:
         _dock.show()
 
     return _window
+
+
+def _install_exit_callback(window: MayaCodeEditorWindow) -> None:
+    """Save the session once more when Maya exits (drafts typed in the last seconds)."""
+    try:
+        import maya.api.OpenMaya as om2  # type: ignore
+
+        def on_exit(_client_data=None) -> None:
+            if _is_alive(window):
+                window.save_session_now()
+
+        window._exit_callback_id = om2.MSceneMessage.addCallback(
+            om2.MSceneMessage.kMayaExiting, on_exit
+        )
+    except Exception as exc:
+        logger.warning("Could not register Maya exit callback: %s", exc)

@@ -31,7 +31,9 @@ OUT_DIR = REPO / "dev" / "out"
 LOG = OUT_DIR / "maya_smoke.log"
 PNG = OUT_DIR / "maya_smoke.png"
 WORKSPACE = OUT_DIR / "smoke_workspace"
+CONFIG_DIR = OUT_DIR / "smoke_config"
 ENV_VAR = "MAYA_CODE_EDITOR_WORKSPACE"
+ENV_CONFIG = "MAYA_CODE_EDITOR_CONFIG"
 
 HELLO_PY = 'print("from file")\n'
 
@@ -62,6 +64,30 @@ def _check_renamed() -> str:
 
 def _check_deleted() -> str:
     return "renamed.py exists=%s" % (WORKSPACE / "renamed.py").exists()
+
+
+def _check_session_file() -> str:
+    session = json.loads((CONFIG_DIR / "session.json").read_text(encoding="utf-8"))
+    settings = json.loads((CONFIG_DIR / "settings.json").read_text(encoding="utf-8"))
+    tabs = [
+        (t.get("kind"), t.get("path") or t.get("title"))
+        for t in session.get("tabs", [])
+    ]
+    draft = next(
+        (
+            t.get("content")
+            for t in session.get("tabs", [])
+            if t.get("kind") == "untitled"
+        ),
+        None,
+    )
+    return "session tabs=%s active=%s draft=%r layout=%s | settings.editor=%s" % (
+        tabs,
+        session.get("activeIndex"),
+        draft,
+        session.get("layout"),
+        settings.get("editor"),
+    )
 
 
 # The live editor window, set by the drivers so Python-side checks can reach it.
@@ -136,7 +162,17 @@ STEPS: list[Step] = [
         "app.bridge.files.remove(app.workspace.root + '/renamed.py').then(() => app.tree.refresh()).then(() => Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent))",
         _check_deleted,
     ),
+    (
+        "session-save",
+        "(app.tabs.newUntitled(), app.editor.setValue('draft text'), app.tabs.activate(app.tabs.tabs[0]), app.saveSessionNow(), {tabs: app.tabs.tabs.map(t => t.title), active: app.tabs.tabs.indexOf(app.tabs.activeTab), settingsFont: app.settings.editor.fontSize})",
+        _check_session_file,
+    ),
 ]
+
+RESTORE_JS = (
+    "window.app ? JSON.stringify({restored: app.restoredTabs, tabs: app.tabs.tabs.map(t => ({title: t.title, dirty: app.tabs.isDirty(t)})),"
+    " active: app.tabs.activeTab && app.tabs.activeTab.title, draft: (app.tabs.tabs.find(t => !t.path) || {model: {getValue: () => null}}).model.getValue()}) : ''"
+)
 
 WRAP_JS = (
     "window.__smoke = {done: false};"
@@ -160,7 +196,40 @@ def _prepare_workspace() -> None:
     (WORKSPACE / "sub").mkdir(parents=True)
     (WORKSPACE / "hello.py").write_text(HELLO_PY, encoding="utf-8")
     (WORKSPACE / "sub" / "nested.py").write_text("# nested\n", encoding="utf-8")
+    if CONFIG_DIR.exists():
+        shutil.rmtree(CONFIG_DIR)
     os.environ[ENV_VAR] = str(WORKSPACE)
+    os.environ[ENV_CONFIG] = str(CONFIG_DIR)
+
+
+def _verify_restore(
+    make_window: Callable, legacy_signature: bool, on_done: Callable[[], None]
+) -> None:
+    """Open a second window and log what it restored from session.json."""
+    from PySide6.QtCore import QTimer
+
+    window2 = make_window()
+    _WINDOW["restore_ref"] = window2  # keep alive
+    page = window2.web_view.page()
+    run_js = _make_run_js(page, legacy_signature)
+    attempts = {"n": 0}
+
+    def poll() -> None:
+        attempts["n"] += 1
+
+        def got(value) -> None:
+            if value:
+                _log("RESTORE: " + str(value))
+                on_done()
+            elif attempts["n"] < 40:
+                QTimer.singleShot(250, poll)
+            else:
+                _log("RESTORE FAILED: page never became ready")
+                on_done()
+
+        run_js(RESTORE_JS, got)
+
+    QTimer.singleShot(2500, poll)
 
 
 class StepRunner:
@@ -271,6 +340,10 @@ def run_inside_maya() -> None:
             after = cmds.cmdScrollFieldReporter(
                 terminal.reporter, query=True, echoAllCommands=True
             )
+            saved = json.loads(
+                (CONFIG_DIR / "settings.json").read_text(encoding="utf-8")
+            )["terminal"]
+            _log(f"history menu: settings.json after toggle={saved}")
             terminal.echo_action.setChecked(False)
             trace = cmds.cmdScrollFieldReporter(
                 terminal.reporter, query=True, stackTrace=True
@@ -318,12 +391,25 @@ def run_inside_maya() -> None:
             _log("screenshot saved")
         except Exception:
             _log("screenshot failed\n" + traceback.format_exc())
-        QTimer.singleShot(1500, quit_maya)
+
+        def make_window():
+            from maya_code_editor.main import MayaCodeEditorWindow
+
+            w = MayaCodeEditorWindow()
+            w.setWindowFlags(w.windowFlags() | Qt.WindowType.Window)
+            w.resize(900, 600)
+            w.show()
+            w.load_page()
+            return w
+
+        from PySide6.QtCore import Qt
+
+        _verify_restore(make_window, True, lambda: QTimer.singleShot(500, quit_maya))
 
     runner = StepRunner(page, run_js, finish)
     window._smoke_runner = runner  # keep alive
     QTimer.singleShot(8000, runner.start)
-    QTimer.singleShot(90000, quit_maya)  # safety net
+    QTimer.singleShot(120000, quit_maya)  # safety net
 
 
 def run_standalone() -> int:
@@ -358,11 +444,23 @@ def run_standalone() -> int:
         _log("screenshot saved")
         _log("TERMINAL >>>\n" + window.terminal.toPlainText().strip() + "\n<<< END")
         window.terminal.cleanup()
-        QTimer.singleShot(200, app.quit)
+
+        def make_window():
+            w = MayaCodeEditorWindow()
+            w.resize(900, 600)
+            w.show()
+            w.load_page()
+            return w
+
+        def done() -> None:
+            _WINDOW["restore_ref"].terminal.cleanup()
+            QTimer.singleShot(200, app.quit)
+
+        _verify_restore(make_window, False, done)
 
     runner = StepRunner(page, run_js, finish)
     QTimer.singleShot(3000, runner.start)
-    QTimer.singleShot(60000, app.quit)
+    QTimer.singleShot(90000, app.quit)
     code = app.exec()
     print(LOG.read_text(encoding="utf-8"))
     return code
@@ -398,6 +496,7 @@ def launch_maya(version: str) -> int:
 
     env = dict(os.environ)
     env[ENV_VAR] = str(WORKSPACE)
+    env[ENV_CONFIG] = str(CONFIG_DIR)
     print(f"launching {maya_exe} ...")
     proc = subprocess.run([str(maya_exe), "-script", mel_path], timeout=300, env=env)
     print(f"maya exited with {proc.returncode}")

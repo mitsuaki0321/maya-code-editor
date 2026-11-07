@@ -27,6 +27,10 @@ const MayaBridge = (function () {
       getWorkspace: function () { return call(raw, "get_workspace").then(JSON.parse); },
       runCode: function (code) { return call(raw, "run_code", code); },
       toggleTerminal: function () { return call(raw, "toggle_terminal"); },
+      getSettings: function () { return call(raw, "get_settings").then(JSON.parse); },
+      getSession: function () { return call(raw, "get_session").then(JSON.parse); },
+      saveSession: function (state) { raw.save_session(JSON.stringify(state)); },
+      openSettingsFile: function () { return fileCall(raw, "open_settings_file"); },
       log: function (message) { raw.log(message); },
       files: {
         listDir: function (path) { return fileCall(raw, "list_dir", path); },

@@ -4,6 +4,8 @@
  * Each tab owns a Monaco model plus its saved view state. Dirty tracking
  * compares the model's alternative version id against the id recorded at
  * load/save time, so undoing back to the saved state clears the marker.
+ * `sessionState()` / `restoreSession()` serialise open files and Untitled
+ * drafts for session.json.
  */
 class Tabs {
   /**
@@ -11,7 +13,7 @@ class Tabs {
    * @param {Object} monaco
    * @param {Object} editor  monaco.editor.IStandaloneCodeEditor
    * @param {Object} files   MayaBridge.files
-   * @param {Object} handlers {onChange(), onActivate(tab)}
+   * @param {Object} handlers {onChange(), onActivate(tab), onContentChange(tab)}
    */
   constructor(container, monaco, editor, files, handlers) {
     this.container = container;
@@ -24,7 +26,6 @@ class Tabs {
     this.workspaceRoot = null;
     this._untitledCounter = 0;
     this._nextId = 1;
-    this._contentListener = null;
   }
 
   // -- queries ---------------------------------------------------------
@@ -60,12 +61,26 @@ class Tabs {
     return tab;
   }
 
-  /** Create an empty Untitled tab and activate it. */
-  newUntitled() {
-    this._untitledCounter += 1;
-    const tab = this._createTab(null, "");
-    tab.title = "Untitled-" + this._untitledCounter;
-    tab.el.querySelector(".tab-title").textContent = tab.title;
+  /**
+   * Create an Untitled tab and activate it.
+   * @param {string} [content]  draft text (restored tabs); non-empty drafts start dirty
+   * @param {string} [title]    e.g. "Untitled-3" when restoring; otherwise the next number
+   */
+  newUntitled(content, title) {
+    if (title) {
+      const n = parseInt(title.replace(/^Untitled-/, ""), 10);
+      if (!isNaN(n)) this._untitledCounter = Math.max(this._untitledCounter, n);
+    } else {
+      this._untitledCounter += 1;
+      title = "Untitled-" + this._untitledCounter;
+    }
+    const tab = this._createTab(null, content || "");
+    tab.title = title;
+    tab.el.querySelector(".tab-title").textContent = title;
+    if (content) {
+      tab.savedVersionId = -1;
+      this._updateDirty(tab);
+    }
     this.activate(tab);
     return tab;
   }
@@ -85,7 +100,10 @@ class Tabs {
     tab.el = this._makeTabElement(tab);
     this.container.appendChild(tab.el);
     this.tabs.push(tab);
-    model.onDidChangeContent(() => this._updateDirty(tab));
+    model.onDidChangeContent(() => {
+      this._updateDirty(tab);
+      this.handlers.onContentChange(tab);
+    });
     this.handlers.onChange();
     return tab;
   }
@@ -209,6 +227,44 @@ class Tabs {
     tab.model.dispose();
     this.handlers.onChange();
     return true;
+  }
+
+  // -- session ---------------------------------------------------------
+
+  /** Serialisable state: open files by path, Untitled tabs with their text. */
+  sessionState() {
+    return {
+      tabs: this.tabs.map((t) =>
+        t.path ? { kind: "file", path: t.path } : { kind: "untitled", title: t.title, content: t.model.getValue() }
+      ),
+      activeIndex: this.active ? this.tabs.indexOf(this.active) : -1,
+    };
+  }
+
+  /**
+   * Reopen tabs from `state` (missing files are skipped silently).
+   * @returns {Promise<number>} number of tabs restored
+   */
+  async restoreSession(state) {
+    const entries = (state && Array.isArray(state.tabs)) ? state.tabs : [];
+    let restored = 0;
+    let activeTab = null;
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      let tab = null;
+      try {
+        if (entry.kind === "file" && entry.path) tab = await this.openFile(entry.path);
+        else if (entry.kind === "untitled") tab = this.newUntitled(entry.content || "", entry.title);
+      } catch (err) {
+        tab = null;
+      }
+      if (tab) {
+        restored += 1;
+        if (i === state.activeIndex) activeTab = tab;
+      }
+    }
+    if (activeTab) this.activate(activeTab);
+    return restored;
   }
 
   // -- external file changes -------------------------------------------

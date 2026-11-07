@@ -17,7 +17,7 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import QObject, Slot
 
-from . import files
+from . import config, files
 from .execution import PythonExecutor
 
 logger = getLogger(__name__)
@@ -36,6 +36,8 @@ class EditorBridge(QObject):
         self._executor = executor
         self._root = workspace_root
         self._terminal_toggle: Optional[Callable[[], bool]] = None
+        self._session_get: Optional[Callable[[], dict]] = None
+        self._session_put: Optional[Callable[[dict], None]] = None
 
     def set_terminal_toggle(self, toggle: Callable[[], bool]) -> None:
         """Register the Qt-side callback that toggles the terminal pane.
@@ -44,6 +46,51 @@ class EditorBridge(QObject):
             toggle: Callable that flips visibility and returns the new state.
         """
         self._terminal_toggle = toggle
+
+    def set_session_hooks(
+        self, get: Callable[[], dict], put: Callable[[dict], None]
+    ) -> None:
+        """Register how the page reads and reports session state.
+
+        Args:
+            get: Returns the session to restore (tabs, drafts, layout).
+            put: Receives the page's current state whenever it changes.
+        """
+        self._session_get = get
+        self._session_put = put
+
+    # -- settings / session ----------------------------------------------
+
+    @Slot(result=str)
+    def get_settings(self) -> str:
+        """Return the user settings (defaults merged) as JSON."""
+        return json.dumps(config.load_settings())
+
+    @Slot(result=str)
+    def get_session(self) -> str:
+        """Return the session to restore as JSON."""
+        session = self._session_get() if self._session_get else config.load_session()
+        return json.dumps(session)
+
+    @Slot(str)
+    def save_session(self, state_json: str) -> None:
+        """Store the page's session state (tabs, drafts, sidebar width).
+
+        Args:
+            state_json: JSON object produced by ``tabs.sessionState()`` plus layout.
+        """
+        try:
+            state = json.loads(state_json)
+        except ValueError:
+            logger.warning("Ignoring malformed session state from page")
+            return
+        if self._session_put and isinstance(state, dict):
+            self._session_put(state)
+
+    @Slot(result=str)
+    def open_settings_file(self) -> str:
+        """Open ``settings.json`` with the OS default application."""
+        return files.open_with_default_app(config.settings_path()).to_json()
 
     # -- terminal --------------------------------------------------------
 

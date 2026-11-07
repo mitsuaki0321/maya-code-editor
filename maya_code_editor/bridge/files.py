@@ -188,6 +188,23 @@ def reveal_path(root: Path, raw_path: str) -> FileResult:
     return FileResult(ok=True, data=path.as_posix())
 
 
+def open_with_default_app(path: Path) -> FileResult:
+    """Open ``path`` with the OS default application (used for settings.json)."""
+    if not path.exists():
+        return _fail(f"File not found: {path}")
+    system = platform.system()
+    try:
+        if system == "Windows":
+            os.startfile(str(path))  # noqa: S606 - opening a user file
+        elif system == "Darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except OSError as exc:
+        return _fail(f"Cannot open {path}: {exc}")
+    return FileResult(ok=True, data=path.as_posix())
+
+
 def delete_path(root: Path, raw_path: str) -> FileResult:
     """Delete a file, or a folder and its contents."""
     path = _resolve_inside(root, raw_path)
