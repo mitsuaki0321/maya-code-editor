@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Maya Code Editor</title>
+<link rel="stylesheet" href="vendor/monaco/vs/editor/editor.main.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="toolbar">
+  <button id="run-button" title="Run (Ctrl+Enter)">Run</button>
+  <span id="status">connecting...</span>
+</div>
+<div id="editor"></div>
+
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="vendor/monaco/vs/loader.js"></script>
+<script src="js/bridge.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
