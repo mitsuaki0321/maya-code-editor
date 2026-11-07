@@ -1,11 +1,13 @@
-"""Automated smoke test inside a real Maya GUI session.
+"""Automated smoke test for the editor, in a real Maya GUI or standalone.
 
 Run from a normal shell::
 
-    python dev/maya_smoke.py [--maya 2025]
+    python dev/maya_smoke.py                # launches Maya 2025 and drives it
+    python dev/maya_smoke.py --maya 2026
+    python dev/maya_smoke.py --standalone   # same steps in a plain Qt app
 
-It launches ``maya.exe`` with a startup MEL script that opens the editor,
-presses Run, captures the reporter text and a screenshot, then quits Maya.
+A fresh workspace is created under ``dev/out/smoke_workspace`` and passed
+via ``MAYA_CODE_EDITOR_WORKSPACE`` so the real workspace is never touched.
 Results land in ``dev/out/maya_smoke.log`` and ``dev/out/maya_smoke.png``.
 
 The same file is executed inside Maya (via ``exec``) to drive the test.
@@ -14,21 +16,115 @@ The same file is executed inside Maya (via ``exec``) to drive the test.
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import traceback
 from pathlib import Path
+from typing import Callable, Optional
 
 REPO = Path(__file__).resolve().parent.parent
 OUT_DIR = REPO / "dev" / "out"
 LOG = OUT_DIR / "maya_smoke.log"
 PNG = OUT_DIR / "maya_smoke.png"
+WORKSPACE = OUT_DIR / "smoke_workspace"
+ENV_VAR = "MAYA_CODE_EDITOR_WORKSPACE"
 
-STATUS_JS = (
-    "document.getElementById('status').textContent"
-    " + ' | monaco=' + (typeof monaco !== 'undefined')"
+HELLO_PY = 'print("from file")\n'
+
+# Each step: (name, JS expression evaluated inside an async wrapper, optional
+# Python-side check run after the JS result arrives).
+Step = tuple[str, str, Optional[Callable[[], str]]]
+
+
+def _check_hello_saved() -> str:
+    text = (WORKSPACE / "hello.py").read_text(encoding="utf-8")
+    return "hello.py contains edit: %s" % ('print("edited")' in text)
+
+
+def _check_new_file() -> str:
+    path = WORKSPACE / "new_one.py"
+    return "new_one.py exists=%s content=%r" % (
+        path.exists(),
+        path.read_text(encoding="utf-8") if path.exists() else None,
+    )
+
+
+def _check_renamed() -> str:
+    return "renamed.py exists=%s new_one.py exists=%s" % (
+        (WORKSPACE / "renamed.py").exists(),
+        (WORKSPACE / "new_one.py").exists(),
+    )
+
+
+def _check_deleted() -> str:
+    return "renamed.py exists=%s" % (WORKSPACE / "renamed.py").exists()
+
+
+STEPS: list[Step] = [
+    (
+        "status",
+        "document.getElementById('status').textContent + ' | monaco=' + (typeof monaco !== 'undefined')",
+        None,
+    ),
+    ("workspace", "app.workspace.root", None),
+    (
+        "tree-initial",
+        "Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent)",
+        None,
+    ),
+    (
+        "open",
+        "app.tabs.openFile(app.workspace.root + '/hello.py').then(t => ({title: t.title, tabs: app.tabs.tabs.length, dirty: app.tabs.isDirty(t)}))",
+        None,
+    ),
+    (
+        "edit",
+        "(app.editor.executeEdits('smoke', [{range: new app.monaco.Range(1e6, 1, 1e6, 1), text: 'print(\"edited\")\\n'}]), {dirty: app.tabs.isDirty(app.tabs.activeTab), hasClass: app.tabs.activeTab.el.classList.contains('dirty')})",
+        None,
+    ),
+    (
+        "save",
+        "app.tabs.save().then(ok => ({ok: ok, dirty: app.tabs.isDirty(app.tabs.activeTab)}))",
+        _check_hello_saved,
+    ),
+    (
+        "new-untitled-save",
+        "(app.tabs.newUntitled(), app.editor.setValue('print(\"new file\")\\n'), app.tabs.save(null, 'new_one.py').then(ok => ({ok: ok, path: app.tabs.activeTab.path, tabs: app.tabs.tabs.map(t => t.title)})))",
+        _check_new_file,
+    ),
+    (
+        "tree-after-save",
+        "app.tree.refresh().then(() => Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent))",
+        None,
+    ),
+    (
+        "rename",
+        "app.bridge.files.rename(app.workspace.root + '/new_one.py', 'renamed.py').then(p => { app.tabs.onPathRenamed(app.workspace.root + '/new_one.py', p, false); return app.tabs.tabs.map(t => t.title); })",
+        _check_renamed,
+    ),
+    (
+        "close-active",
+        "app.tabs.close(null, true).then(ok => ({ok: ok, tabs: app.tabs.tabs.length, active: app.tabs.activeTab && app.tabs.activeTab.title}))",
+        None,
+    ),
+    ("run", "app.runActive().then(() => 'dispatched')", None),
+    (
+        "delete",
+        "app.bridge.files.remove(app.workspace.root + '/renamed.py').then(() => app.tree.refresh()).then(() => Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent))",
+        _check_deleted,
+    ),
+]
+
+WRAP_JS = (
+    "window.__smoke = {done: false};"
+    "(async () => { try { const r = await (%s); window.__smoke = {done: true, result: JSON.stringify(r === undefined ? null : r)}; }"
+    " catch (e) { window.__smoke = {done: true, error: String(e && e.stack || e)}; } })();"
 )
+POLL_JS = "JSON.stringify(window.__smoke || {done: false})"
 
 
 def _log(msg: str) -> None:
@@ -37,13 +133,89 @@ def _log(msg: str) -> None:
         f.write(msg + "\n")
 
 
+def _prepare_workspace() -> None:
+    """Create a fresh smoke workspace with one known file."""
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if WORKSPACE.exists():
+        shutil.rmtree(WORKSPACE)
+    (WORKSPACE / "sub").mkdir(parents=True)
+    (WORKSPACE / "hello.py").write_text(HELLO_PY, encoding="utf-8")
+    (WORKSPACE / "sub" / "nested.py").write_text("# nested\n", encoding="utf-8")
+    os.environ[ENV_VAR] = str(WORKSPACE)
+
+
+class StepRunner:
+    """Drive the page through STEPS with runJavaScript polling."""
+
+    def __init__(self, page, run_js: Callable, on_done: Callable[[], None]) -> None:
+        from PySide6.QtCore import QTimer
+
+        self._page = page
+        self._run_js = run_js
+        self._on_done = on_done
+        self._timer = QTimer()
+        self._timer.setInterval(150)
+        self._timer.timeout.connect(self._poll)
+        self._index = -1
+        self._failures = 0
+
+    def start(self) -> None:
+        self._next()
+
+    def _next(self) -> None:
+        self._index += 1
+        if self._index >= len(STEPS):
+            _log("STEPS DONE failures=%d" % self._failures)
+            self._on_done()
+            return
+        name, js, _ = STEPS[self._index]
+        self._run_js(WRAP_JS % js)
+        self._timer.start()
+
+    def _poll(self) -> None:
+        self._run_js(POLL_JS, self._on_poll)
+
+    def _on_poll(self, value) -> None:
+        state = json.loads(value) if value else {"done": False}
+        if not state.get("done"):
+            return
+        self._timer.stop()
+        name, _, check = STEPS[self._index]
+        if "error" in state:
+            self._failures += 1
+            _log("[%s] ERROR %s" % (name, state["error"]))
+        else:
+            _log("[%s] %s" % (name, state.get("result")))
+        if check is not None:
+            try:
+                _log("[%s] check: %s" % (name, check()))
+            except Exception:
+                self._failures += 1
+                _log("[%s] check FAILED\n%s" % (name, traceback.format_exc()))
+        self._next()
+
+
+def _make_run_js(page, legacy_signature: bool) -> Callable:
+    """Return a run_js(js, callback=None) helper for either PySide6 signature."""
+
+    def run_js(js: str, callback: Optional[Callable] = None) -> None:
+        if callback is None:
+            page.runJavaScript(js)
+        elif legacy_signature:
+            page.runJavaScript(js, 0, callback)
+        else:
+            page.runJavaScript(js, 0, callback)
+
+    return run_js
+
+
 def run_inside_maya() -> None:
     """Drive the editor inside Maya and write log / screenshot."""
     import maya.cmds as cmds  # type: ignore
     from PySide6.QtCore import QTimer
     from PySide6.QtGui import QGuiApplication
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    _prepare_workspace()
     LOG.write_text("", encoding="utf-8")
     _log(f"maya {cmds.about(version=True)}")
 
@@ -56,7 +228,9 @@ def run_inside_maya() -> None:
         import maya_code_editor
 
         window = maya_code_editor.show_ui()
-        _log(f"show_ui ok; terminal={type(window.terminal).__name__}")
+        _log(
+            f"show_ui ok; terminal={type(window.terminal).__name__} workspace={window.workspace_root}"
+        )
     except Exception:
         _log("show_ui FAILED\n" + traceback.format_exc())
         QTimer.singleShot(1000, quit_maya)
@@ -64,21 +238,36 @@ def run_inside_maya() -> None:
 
     page = window.web_view.page()
     page.loadFinished.connect(lambda ok: _log(f"loadFinished ok={ok}"))
+    run_js = _make_run_js(page, legacy_signature=True)
 
-    def query_status() -> None:
-        page.runJavaScript(STATUS_JS, 0, lambda v: _log(f"STATUS: {v}"))
+    def check_context_menu() -> None:
+        """Open the terminal context menu (closed by a timer) to catch stale wrappers."""
+        from PySide6.QtCore import QPoint
+        from PySide6.QtWidgets import QMenu
 
-    def trigger_run() -> None:
-        page.runJavaScript("document.getElementById('run-button').click();")
-        _log("run triggered")
+        widget = window.terminal.reporter_qwidget()
+        _log(f"reporter widget valid={widget is not None}")
+
+        def close_menu() -> None:
+            for menu in window.terminal.findChildren(QMenu):
+                if menu.isVisible():
+                    menu.close()
+                    _log("context menu shown and closed")
+
+        QTimer.singleShot(400, close_menu)
+        try:
+            window.terminal._show_context_menu(QPoint(10, 10))
+            _log("context menu ok")
+        except Exception:
+            _log("context menu FAILED\n" + traceback.format_exc())
 
     def finish() -> None:
-        query_status()
+        check_context_menu()
         try:
             text = cmds.cmdScrollFieldReporter(
                 window.terminal.reporter, query=True, text=True
             )
-            tail = "\n".join(str(text).splitlines()[-12:])
+            tail = "\n".join(str(text).splitlines()[-8:])
             _log("REPORTER TAIL >>>\n" + tail + "\n<<< END")
         except Exception:
             _log("reporter query failed\n" + traceback.format_exc())
@@ -89,10 +278,51 @@ def run_inside_maya() -> None:
             _log("screenshot failed\n" + traceback.format_exc())
         QTimer.singleShot(1500, quit_maya)
 
-    QTimer.singleShot(8000, query_status)
-    QTimer.singleShot(9000, trigger_run)
-    QTimer.singleShot(12000, finish)
-    QTimer.singleShot(60000, quit_maya)  # safety net
+    runner = StepRunner(page, run_js, finish)
+    window._smoke_runner = runner  # keep alive
+    QTimer.singleShot(8000, runner.start)
+    QTimer.singleShot(90000, quit_maya)  # safety net
+
+
+def run_standalone() -> int:
+    """Drive the editor in a plain QApplication (no Maya)."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QApplication
+
+    _prepare_workspace()
+    LOG.write_text("", encoding="utf-8")
+    _log("standalone")
+
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from maya_code_editor.main import MayaCodeEditorWindow
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = MayaCodeEditorWindow()
+    window.resize(1100, 720)
+    window.show()
+    window.load_page()
+    _log(
+        f"window ok; terminal={type(window.terminal).__name__} workspace={window.workspace_root}"
+    )
+
+    page = window.web_view.page()
+    run_js = _make_run_js(page, legacy_signature=False)
+
+    def finish() -> None:
+        QGuiApplication.primaryScreen().grabWindow(window.winId()).save(str(PNG))
+        _log("screenshot saved")
+        _log("TERMINAL >>>\n" + window.terminal.toPlainText().strip() + "\n<<< END")
+        window.terminal.cleanup()
+        QTimer.singleShot(200, app.quit)
+
+    runner = StepRunner(page, run_js, finish)
+    QTimer.singleShot(3000, runner.start)
+    QTimer.singleShot(60000, app.quit)
+    code = app.exec()
+    print(LOG.read_text(encoding="utf-8"))
+    return code
 
 
 def launch_maya(version: str) -> int:
@@ -123,8 +353,10 @@ def launch_maya(version: str) -> int:
         f.write(mel)
         mel_path = f.name
 
+    env = dict(os.environ)
+    env[ENV_VAR] = str(WORKSPACE)
     print(f"launching {maya_exe} ...")
-    proc = subprocess.run([str(maya_exe), "-script", mel_path], timeout=300)
+    proc = subprocess.run([str(maya_exe), "-script", mel_path], timeout=300, env=env)
     print(f"maya exited with {proc.returncode}")
     if LOG.exists():
         print("--- LOG ---")
@@ -134,15 +366,18 @@ def launch_maya(version: str) -> int:
 
 
 def main() -> int:
-    """Entry point for both the outer launcher and the in-Maya driver."""
+    """Entry point for the launcher, the standalone runner and the in-Maya driver."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--maya", default="2025", help="Maya version folder, e.g. 2025")
+    parser.add_argument("--standalone", action="store_true", help="run without Maya")
     parser.add_argument("--in-maya", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args.in_maya:
         run_inside_maya()
         return 0
+    if args.standalone:
+        return run_standalone()
     return launch_maya(args.maya)
 
 

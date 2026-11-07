@@ -9,13 +9,41 @@
 <body>
 <div id="toolbar">
   <button id="run-button" title="Run (Ctrl+Enter)">Run</button>
+  <button id="save-button" title="Save (Ctrl+S)">Save</button>
+  <button id="new-button" title="New File (Ctrl+N)">New</button>
   <span id="status">connecting...</span>
 </div>
-<div id="editor"></div>
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <span id="workspace-name">EXPLORER</span>
+      <button id="refresh-button" title="Refresh">&#x21bb;</button>
+    </div>
+    <div id="file-tree"></div>
+  </div>
+  <div id="gutter"></div>
+  <div id="content">
+    <div id="tab-bar"></div>
+    <div id="editor"></div>
+    <div id="empty-state">Open a file from the explorer, or press Ctrl+N.</div>
+  </div>
+</div>
+<div id="context-menu" hidden></div>
+<div id="dialog-overlay" hidden>
+  <div id="dialog" role="dialog">
+    <div id="dialog-title"></div>
+    <div id="dialog-message"></div>
+    <input id="dialog-input" type="text" autocomplete="off" spellcheck="false">
+    <div id="dialog-buttons"></div>
+  </div>
+</div>
 
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="vendor/monaco/vs/loader.js"></script>
 <script src="js/bridge.js"></script>
+<script src="js/dialogs.js"></script>
+<script src="js/file_tree.js"></script>
+<script src="js/tabs.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

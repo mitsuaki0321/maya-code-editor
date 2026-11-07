@@ -24,6 +24,7 @@ from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from .bridge.channel import EditorBridge
 from .bridge.execution import PythonExecutor
+from .bridge.workspace import resolve_workspace_root
 from .terminal import create_terminal
 
 logger = getLogger(__name__)
@@ -47,10 +48,11 @@ class MayaCodeEditorWindow(QWidget):
         self.setObjectName("MayaCodeEditorWindow")
 
         self.executor = PythonExecutor()
+        self.workspace_root = resolve_workspace_root()
         self.terminal = create_terminal(self)
         self.web_view = QWebEngineView(self)
         self.channel = QWebChannel(self.web_view.page())
-        self.bridge = EditorBridge(self.executor, self)
+        self.bridge = EditorBridge(self.executor, self.workspace_root, self)
         self.channel.registerObject("bridge", self.bridge)
         self.web_view.page().setWebChannel(self.channel)
 
