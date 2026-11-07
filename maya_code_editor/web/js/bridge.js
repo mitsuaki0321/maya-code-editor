@@ -41,6 +41,7 @@ const MayaBridge = (function () {
         rename: function (path, newName) { return fileCall(raw, "rename_path", path, newName); },
         remove: function (path) { return fileCall(raw, "delete_path", path); },
         reveal: function (path) { return fileCall(raw, "reveal_path", path); },
+        move: function (path, destDir) { return fileCall(raw, "move_path", path, destDir); },
       },
     };
   }

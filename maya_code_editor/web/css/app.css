@@ -190,6 +190,16 @@ button {
 .tree-children { display: none; }
 .tree-node.expanded + .tree-children { display: block; }
 
+/* middle-button drag */
+.tree-node.drop-target { outline: 1px solid var(--accent); outline-offset: -1px; background: var(--hover); }
+#file-tree.drop-root { box-shadow: inset 0 0 0 1px var(--accent); }
+body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
+.drag-ghost {
+  position: fixed; z-index: 150; pointer-events: none;
+  background: #303031; color: var(--fg); border: 1px solid var(--border); border-radius: 3px;
+  padding: 2px 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
 /* ---- tabs ---- */
 
 #tab-bar {

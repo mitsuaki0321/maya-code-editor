@@ -162,6 +162,28 @@ def rename_path(root: Path, raw_path: str, new_name: str) -> FileResult:
     return FileResult(ok=True, data=target.as_posix())
 
 
+def move_path(root: Path, raw_path: str, raw_dest_dir: str) -> FileResult:
+    """Move a file or folder into ``raw_dest_dir`` keeping its name. ``data`` is the new path."""
+    path = _resolve_inside(root, raw_path)
+    dest_dir = _resolve_inside(root, raw_dest_dir)
+    if path is None or path == root or not path.exists():
+        return _fail(f"Cannot move: {raw_path}")
+    if dest_dir is None or not dest_dir.is_dir():
+        return _fail(f"Not a folder inside the workspace: {raw_dest_dir}")
+    if dest_dir == path or path in dest_dir.parents:
+        return _fail(f"Cannot move a folder into itself: {path.name}")
+    target = dest_dir / path.name
+    if target == path:
+        return FileResult(ok=True, data=path.as_posix())
+    if target.exists():
+        return _fail(f"Already exists in destination: {path.name}")
+    try:
+        shutil.move(str(path), str(target))
+    except OSError as exc:
+        return _fail(f"Cannot move {path}: {exc}")
+    return FileResult(ok=True, data=target.as_posix())
+
+
 def reveal_path(root: Path, raw_path: str) -> FileResult:
     """Open the OS file manager at ``raw_path``.
 

@@ -163,6 +163,42 @@ STEPS: list[Step] = [
         _check_deleted,
     ),
     (
+        "multi-move",
+        "(async () => { const r = app.workspace.root; await app.bridge.files.createFile(r, 'a.py'); await app.bridge.files.createFile(r, 'b.py'); await app.tree.refresh();"
+        " await app.tabs.openFile(r + '/a.py'); app.tree.setSelection([r + '/a.py', r + '/b.py']);"
+        " const moved = await app.tree.moveSelectionTo(r + '/sub'); return {moved: moved.map(p => p.slice(r.length)), tabPaths: app.tabs.tabs.map(t => t.path && t.path.slice(r.length)), selection: app.tree.selection.map(p => p.slice(r.length))}; })()",
+        lambda: (
+            "sub/a.py=%s sub/b.py=%s root a.py=%s"
+            % (
+                (WORKSPACE / "sub" / "a.py").exists(),
+                (WORKSPACE / "sub" / "b.py").exists(),
+                (WORKSPACE / "a.py").exists(),
+            )
+        ),
+    ),
+    (
+        "mmb-drag",
+        "(async () => { const r = app.workspace.root; const node = app.tree._nodeFor(r + '/sub/b.py'); const nr = node.getBoundingClientRect(); const tr = app.tree.container.getBoundingClientRect();"
+        " const ev = (type, el, x, y, btn) => el.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true, clientX: x, clientY: y, button: btn, buttons: btn === 1 ? 4 : 0}));"
+        " app.tree.setSelection([]); ev('mousedown', node, nr.left + 30, nr.top + 8, 1); ev('mousemove', document, nr.left + 40, nr.top + 20, 1);"
+        " const tx = tr.left + 40, ty = tr.bottom - 6; ev('mousemove', document, tx, ty, 1); const ghost = !!document.querySelector('.drag-ghost'); const target = app.tree.drag && app.tree.drag.target;"
+        " ev('mouseup', document, tx, ty, 1); await new Promise(res => setTimeout(res, 800));"
+        " return {ghostShown: ghost, dropTarget: target && target.slice(r.length) || target, labels: Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent)}; })()",
+        lambda: (
+            "root b.py=%s sub/b.py=%s"
+            % ((WORKSPACE / "b.py").exists(), (WORKSPACE / "sub" / "b.py").exists())
+        ),
+    ),
+    (
+        "multi-delete",
+        "(async () => { const r = app.workspace.root; app.tree.setSelection([r + '/sub/a.py', r + '/b.py']); await app.tree._deletePaths(app.tree.selection.slice());"
+        " return {tabs: app.tabs.tabs.map(t => t.title), labels: Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent)}; })()",
+        lambda: (
+            "sub/a.py=%s b.py=%s"
+            % ((WORKSPACE / "sub" / "a.py").exists(), (WORKSPACE / "b.py").exists())
+        ),
+    ),
+    (
         "session-save",
         "(app.tabs.newUntitled(), app.editor.setValue('draft text'), app.tabs.activate(app.tabs.tabs[0]), app.saveSessionNow(), {tabs: app.tabs.tabs.map(t => t.title), active: app.tabs.tabs.indexOf(app.tabs.activeTab), settingsFont: app.settings.editor.fontSize})",
         _check_session_file,
@@ -200,6 +236,63 @@ def _prepare_workspace() -> None:
         shutil.rmtree(CONFIG_DIR)
     os.environ[ENV_VAR] = str(WORKSPACE)
     os.environ[ENV_CONFIG] = str(CONFIG_DIR)
+
+
+DRAG_COORDS_JS = (
+    "(() => { const r = app.workspace.root; const a = app.tree._nodeFor(r + '/hello.py').getBoundingClientRect();"
+    " const b = app.tree._nodeFor(r + '/sub').getBoundingClientRect();"
+    " return JSON.stringify({ax: a.left + 30, ay: a.top + 8, bx: b.left + 30, by: b.top + 8}); })()"
+)
+
+
+def _check_real_mmb_drag(window, run_js: Callable, on_done: Callable[[], None]) -> None:
+    """Drag hello.py onto the sub folder with real middle-button Qt events.
+
+    The page-level drag is already covered by synthetic DOM events; this
+    confirms that QtWebEngine delivers middle-button presses to the page
+    without Chromium's autoscroll swallowing them.
+    """
+    from PySide6.QtCore import QPoint, Qt, QTimer
+    from PySide6.QtTest import QTest
+
+    def got(value) -> None:
+        try:
+            d = json.loads(value)
+        except (TypeError, ValueError):
+            _log("real mmb drag: could not read node coordinates")
+            on_done()
+            return
+        proxy = window.web_view.focusProxy() or window.web_view
+        start = QPoint(int(d["ax"]), int(d["ay"]))
+        end = QPoint(int(d["bx"]), int(d["by"]))
+        QTest.mouseMove(proxy, start)
+        QTest.mousePress(
+            proxy, Qt.MouseButton.MiddleButton, Qt.KeyboardModifier.NoModifier, start
+        )
+        for i in range(1, 6):
+            pos = QPoint(
+                start.x() + (end.x() - start.x()) * i // 5,
+                start.y() + (end.y() - start.y()) * i // 5,
+            )
+            QTest.mouseMove(proxy, pos, 40)
+        QTest.mouseRelease(
+            proxy, Qt.MouseButton.MiddleButton, Qt.KeyboardModifier.NoModifier, end
+        )
+
+        def verify() -> None:
+            moved = (WORKSPACE / "sub" / "hello.py").exists()
+            _log(f"real mmb drag: sub/hello.py exists={moved}")
+            if moved:  # move it back through the page so tabs and session follow
+                run_js(
+                    "app.tree.moveSelectionTo(app.workspace.root, [app.workspace.root + '/sub/hello.py']).then(() => app.saveSessionNow())"
+                )
+                QTimer.singleShot(1000, on_done)
+            else:
+                on_done()
+
+        QTimer.singleShot(1500, verify)
+
+    run_js(DRAG_COORDS_JS, got)
 
 
 def _verify_restore(
@@ -404,7 +497,13 @@ def run_inside_maya() -> None:
 
         from PySide6.QtCore import Qt
 
-        _verify_restore(make_window, True, lambda: QTimer.singleShot(500, quit_maya))
+        _check_real_mmb_drag(
+            window,
+            run_js,
+            lambda: _verify_restore(
+                make_window, True, lambda: QTimer.singleShot(500, quit_maya)
+            ),
+        )
 
     runner = StepRunner(page, run_js, finish)
     window._smoke_runner = runner  # keep alive
@@ -456,7 +555,9 @@ def run_standalone() -> int:
             _WINDOW["restore_ref"].terminal.cleanup()
             QTimer.singleShot(200, app.quit)
 
-        _verify_restore(make_window, False, done)
+        _check_real_mmb_drag(
+            window, run_js, lambda: _verify_restore(make_window, False, done)
+        )
 
     runner = StepRunner(page, run_js, finish)
     QTimer.singleShot(3000, runner.start)

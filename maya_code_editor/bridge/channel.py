@@ -173,6 +173,11 @@ class EditorBridge(QObject):
         """Delete a file or folder. See :func:`files.delete_path`."""
         return files.delete_path(self._root, path).to_json()
 
+    @Slot(str, str, result=str)
+    def move_path(self, path: str, dest_dir: str) -> str:
+        """Move a file or folder into a folder. See :func:`files.move_path`."""
+        return files.move_path(self._root, path, dest_dir).to_json()
+
     @Slot(str, result=str)
     def reveal_path(self, path: str) -> str:
         """Show a file or folder in the OS file manager. See :func:`files.reveal_path`."""
