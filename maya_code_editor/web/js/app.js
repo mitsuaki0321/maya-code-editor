@@ -60,22 +60,29 @@
     return name;
   }
 
+  /**
+   * Create the editor from settings.json's `editor` section.
+   * Every key is passed to Monaco as-is (IEditorOptions names), except `theme`
+   * (handled here) and `minimap` (a boolean is expanded to `{enabled}`).
+   */
   function createEditor(monaco, editorSettings) {
-    const s = editorSettings || {};
-    return monaco.editor.create(document.getElementById("editor"), {
-      model: null,
-      theme: applyTheme(monaco, s.theme || "dark-modern"),
-      automaticLayout: true,
-      fontSize: s.fontSize || 13,
-      tabSize: s.tabSize || 4,
-      wordWrap: s.wordWrap || "off",
-      insertSpaces: true,
-      minimap: { enabled: !!s.minimap },
-      acceptSuggestionOnEnter: s.acceptSuggestionOnEnter || "off",
-      mouseWheelZoom: true,
-      scrollBeyondLastLine: false,
-      renderLineHighlight: "all",
-    });
+    const s = Object.assign({}, editorSettings || {});
+    const theme = applyTheme(monaco, s.theme || "dark-modern");
+    delete s.theme;
+    if (typeof s.minimap === "boolean") s.minimap = { enabled: s.minimap };
+    const options = Object.assign(
+      {
+        // Editor behaviour this app relies on; settings.json may still override them.
+        automaticLayout: true,
+        insertSpaces: true,
+        mouseWheelZoom: true,
+        scrollBeyondLastLine: false,
+        renderLineHighlight: "all",
+      },
+      s,
+      { model: null, theme: theme }
+    );
+    return monaco.editor.create(document.getElementById("editor"), options);
   }
 
   function setupGutter(onResized) {

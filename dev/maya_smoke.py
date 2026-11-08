@@ -316,6 +316,14 @@ STEPS: list[Step] = [
         None,
     ),
     (
+        "editor-options",
+        "({fontSize: app.editor.getOption(app.monaco.editor.EditorOption.fontSize), tabSize: app.editor.getModel().getOptions().tabSize,"
+        " lineNumbers: app.editor.getOption(app.monaco.editor.EditorOption.lineNumbers).renderType,"
+        " renderWhitespace: app.editor.getOption(app.monaco.editor.EditorOption.renderWhitespace),"
+        " minimap: app.editor.getOption(app.monaco.editor.EditorOption.minimap).enabled})",
+        None,
+    ),
+    (
         "complete-enter-open",
         "(async () => { const m = app.editor.getModel(); m.setValue('import os\\nos.'); app.editor.setPosition({lineNumber: 2, column: 4}); app.editor.focus();"
         " app.completion.invalidate(); app.editor.trigger('smoke', 'editor.action.triggerSuggest', {}); await new Promise(r => setTimeout(r, 900));"
@@ -370,6 +378,8 @@ RESTORE_JS = (
     "window.app ? JSON.stringify({restored: app.restoredTabs, theme: app.settings.editor.theme,"
     " editorBg: getComputedStyle(document.querySelector('.monaco-editor .monaco-editor-background')).backgroundColor,"
     " shellBg: getComputedStyle(document.body).backgroundColor,"
+    " options: {fontSize: app.editor.getOption(app.monaco.editor.EditorOption.fontSize), lineNumbers: app.editor.getOption(app.monaco.editor.EditorOption.lineNumbers).renderType,"
+    " renderWhitespace: app.editor.getOption(app.monaco.editor.EditorOption.renderWhitespace)},"
     " tabs: app.tabs.tabs.map(t => ({title: t.title, dirty: app.tabs.isDirty(t)})),"
     " active: app.tabs.activeTab && app.tabs.activeTab.title, draft: (app.tabs.tabs.find(t => !t.path) || {model: {getValue: () => null}}).model.getValue()}) : ''"
 )
@@ -398,6 +408,11 @@ def _prepare_workspace() -> None:
     (WORKSPACE / "sub" / "nested.py").write_text("# nested\n", encoding="utf-8")
     if CONFIG_DIR.exists():
         shutil.rmtree(CONFIG_DIR)
+    CONFIG_DIR.mkdir(parents=True)
+    # A user-level override (not a project default); the Enter test relies on it.
+    (CONFIG_DIR / "settings.json").write_text(
+        json.dumps({"editor": {"acceptSuggestionOnEnter": "off"}}), encoding="utf-8"
+    )
     os.environ[ENV_VAR] = str(WORKSPACE)
     os.environ[ENV_CONFIG] = str(CONFIG_DIR)
 
@@ -468,7 +483,12 @@ def _verify_restore(
 
     settings_file = CONFIG_DIR / "settings.json"
     settings = json.loads(settings_file.read_text(encoding="utf-8"))
-    settings.setdefault("editor", {})["theme"] = "light-modern"
+    editor = settings.setdefault("editor", {})
+    editor["theme"] = "light-modern"
+    # Arbitrary Monaco options must pass straight through.
+    editor["lineNumbers"] = "relative"
+    editor["renderWhitespace"] = "boundary"
+    editor["fontSize"] = 15
     settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
     window2 = make_window()

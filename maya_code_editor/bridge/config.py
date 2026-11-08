@@ -31,8 +31,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "fontSize": 13,
         "tabSize": 4,
         "wordWrap": "off",
-        "minimap": False,
-        "acceptSuggestionOnEnter": "off",  # off: Tab accepts, Enter always inserts a newline
+        "minimap": True,
     },
     "terminal": {
         "echoAllCommands": False,
