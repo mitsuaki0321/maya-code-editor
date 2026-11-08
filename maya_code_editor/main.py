@@ -96,9 +96,12 @@ class MayaCodeEditorWindow(QWidget):
         session = dict(self._session)
         layout = dict(session.get("layout", {}))
         sizes = self.splitter.sizes()
-        if self.terminal.isVisible() and all(s > 0 for s in sizes):
+        # isHidden() reflects only an explicit hide (the Terminal button); isVisible()
+        # would also be False while Maya is exiting or the panel is closed.
+        terminal_shown = not self.terminal.isHidden()
+        if terminal_shown and all(s > 0 for s in sizes):
             layout["splitterSizes"] = sizes
-        layout["terminalVisible"] = self.terminal.isVisible()
+        layout["terminalVisible"] = terminal_shown
         session["layout"] = layout
         return session
 
@@ -132,7 +135,7 @@ class MayaCodeEditorWindow(QWidget):
         Returns:
             True if the terminal is visible after the call.
         """
-        visible = not self.terminal.isVisible()
+        visible = self.terminal.isHidden()
         self.terminal.setVisible(visible)
         return visible
 

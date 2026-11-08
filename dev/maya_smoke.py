@@ -286,6 +286,28 @@ STEPS: list[Step] = [
     ),
 ]
 
+
+def _check_hidden_window_save() -> str:
+    """Saving while the whole window is hidden must not record the terminal as hidden."""
+    window = _WINDOW["ref"]
+    window.hide()
+    try:
+        window.save_session_now()
+    finally:
+        window.show()
+    layout = json.loads((CONFIG_DIR / "session.json").read_text(encoding="utf-8"))[
+        "layout"
+    ]
+    return "terminalVisible while window hidden=%s sizes=%s" % (
+        layout.get("terminalVisible"),
+        layout.get("splitterSizes"),
+    )
+
+
+STEPS.append(
+    ("session-hidden-window", "'window hidden during save'", _check_hidden_window_save)
+)
+
 RESTORE_JS = (
     "window.app ? JSON.stringify({restored: app.restoredTabs, theme: app.settings.editor.theme,"
     " editorBg: getComputedStyle(document.querySelector('.monaco-editor .monaco-editor-background')).backgroundColor,"
