@@ -47,6 +47,7 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 - 組み込み型（`str.` など）と、ドット無しの場合は組み込み関数・キーワード・`__main__` の名前
 - コメントと文字列の中では出ない。`()` や `[]` を含む式は評価しない（副作用を避ける）
 - 結果は式ごとにキャッシュし、コードを実行するたびに捨てる。起動時やバックグラウンドの処理は無い
+- 候補の確定は Tab。Enter は常に改行（`acceptSuggestionOnEnter` を `on` / `smart` にすると VS Code と同じ動き）。Esc で候補を閉じる
 
 ## ファイルの場所
 
@@ -60,7 +61,8 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 
 ```json
 {
-  "editor": { "theme": "dark-modern", "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": false },
+  "editor": { "theme": "dark-modern", "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": false,
+              "acceptSuggestionOnEnter": "off" },
   "terminal": { "echoAllCommands": false, "showStackTrace": true }
 }
 ```

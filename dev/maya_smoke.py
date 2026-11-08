@@ -99,6 +99,17 @@ def _check_session_file() -> str:
 _WINDOW: dict = {"ref": None}
 
 
+def _press_key(name: str) -> str:
+    """Send a real key press to the web view (keybindings see it, unlike editor.trigger)."""
+    from maya_code_editor.qt import Qt
+
+    QTest = importlib.import_module(BINDING + ".QtTest").QTest
+    window = _WINDOW["ref"]
+    proxy = window.web_view.focusProxy() or window.web_view
+    QTest.keyClick(proxy, getattr(Qt.Key, "Key_" + name))
+    return f"sent {name}"
+
+
 STEPS: list[Step] = [
     (
         "status",
@@ -302,6 +313,19 @@ STEPS: list[Step] = [
         "complete-guard",
         "(() => { const m = app.editor.getModel(); m.setValue('# cmds.\\nx = \"a.b\"\\ncmds.\\n'); const P = (l, c) => ({lineNumber: l, column: c});"
         " return {inComment: app.completion.inCommentOrString(app.monaco, m, P(1, 8)), inString: app.completion.inCommentOrString(app.monaco, m, P(2, 8)), inCode: app.completion.inCommentOrString(app.monaco, m, P(3, 6))}; })()",
+        None,
+    ),
+    (
+        "complete-enter-open",
+        "(async () => { const m = app.editor.getModel(); m.setValue('import os\\nos.'); app.editor.setPosition({lineNumber: 2, column: 4}); app.editor.focus();"
+        " app.completion.invalidate(); app.editor.trigger('smoke', 'editor.action.triggerSuggest', {}); await new Promise(r => setTimeout(r, 900));"
+        " return {rows: document.querySelectorAll('.suggest-widget .monaco-list-row').length, option: app.editor.getOption(app.monaco.editor.EditorOption.acceptSuggestionOnEnter)}; })()",
+        lambda: _press_key("Return"),
+    ),
+    (
+        "complete-enter-result",
+        "(async () => { await new Promise(r => setTimeout(r, 300)); const m = app.editor.getModel();"
+        " return {value: m.getValue(), lines: m.getLineCount(), accepted: m.getValue() !== 'import os\\nos.\\n'}; })()",
         None,
     ),
     (

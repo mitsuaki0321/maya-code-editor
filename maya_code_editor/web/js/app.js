@@ -71,6 +71,7 @@
       wordWrap: s.wordWrap || "off",
       insertSpaces: true,
       minimap: { enabled: !!s.minimap },
+      acceptSuggestionOnEnter: s.acceptSuggestionOnEnter || "off",
       mouseWheelZoom: true,
       scrollBeyondLastLine: false,
       renderLineHighlight: "all",
