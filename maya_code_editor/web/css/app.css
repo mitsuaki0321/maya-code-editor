@@ -46,41 +46,75 @@ button {
   cursor: pointer;
 }
 
-/* ---- toolbar ---- */
+/* ---- toolbar (28px, icon buttons, Run is the only colored control) ---- */
 
 #toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 8px;
+  gap: 2px;
+  height: 28px;
+  padding: 0 6px;
   background: var(--toolbar-bg);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
 
 #toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: var(--fg);
-  border: 1px solid transparent;
-  border-radius: 2px;
-  padding: 3px 10px;
+  border: none;
+  border-radius: 3px;
+  height: 24px;
 }
+#toolbar button.icon { width: 26px; padding: 0; }
+#toolbar button.icon:hover { background: var(--hover); }
+#toolbar button.icon.on { background: var(--selected); }
+#toolbar button.icon.off { color: var(--muted); }
 
-#toolbar button:hover { background: var(--hover); border-color: var(--border); }
+#toolbar button.primary {
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px 0 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+#toolbar button.primary:hover { background: var(--accent-hover); }
 
-#toolbar #run-button { background: var(--accent); color: #fff; }
-#toolbar #run-button:hover { background: var(--accent-hover); }
-#toolbar #terminal-button.off { color: var(--muted); text-decoration: line-through; }
+#toolbar .separator { width: 1px; height: 16px; background: var(--border); margin: 0 6px; }
+#toolbar .spacer, #status-bar .spacer { flex: 1 1 auto; min-width: 0; }
 
-#status {
-  margin-left: auto;
+#toolbar-path {
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
+
+/* ---- status bar (22px) ---- */
+
+#status-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 22px;
+  padding: 0 10px;
+  background: var(--toolbar-bg);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+#status-bar span { overflow: hidden; text-overflow: ellipsis; }
+#status { color: var(--fg); }
+#status:empty { display: none; }
+#status-cursor { font-variant-numeric: tabular-nums; }
 
 /* ---- main split ---- */
 
@@ -145,6 +179,7 @@ button {
 #empty-state {
   position: absolute;
   inset: 35px 0 0 0;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;

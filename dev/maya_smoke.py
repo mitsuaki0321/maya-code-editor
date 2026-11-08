@@ -28,6 +28,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 REPO = Path(__file__).resolve().parent.parent
+if hasattr(sys.stdout, "reconfigure"):  # Windows consoles default to cp932
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 from maya_code_editor.qt import BINDING, exec_  # noqa: E402
@@ -113,7 +115,7 @@ def _press_key(name: str) -> str:
 STEPS: list[Step] = [
     (
         "status",
-        "document.getElementById('status').textContent + ' | monaco=' + (typeof monaco !== 'undefined')",
+        "document.getElementById('status-env').textContent + ' | monaco=' + (typeof monaco !== 'undefined')",
         None,
     ),
     ("workspace", "app.workspace.root", None),
@@ -313,6 +315,12 @@ STEPS: list[Step] = [
         "complete-guard",
         "(() => { const m = app.editor.getModel(); m.setValue('# cmds.\\nx = \"a.b\"\\ncmds.\\n'); const P = (l, c) => ({lineNumber: l, column: c});"
         " return {inComment: app.completion.inCommentOrString(app.monaco, m, P(1, 8)), inString: app.completion.inCommentOrString(app.monaco, m, P(2, 8)), inCode: app.completion.inCommentOrString(app.monaco, m, P(3, 6))}; })()",
+        None,
+    ),
+    (
+        "status-bar",
+        "(() => { app.editor.setPosition({lineNumber: 2, column: 5}); const t = id => document.getElementById(id).textContent;"
+        " return {path: t('toolbar-path'), cursor: t('status-cursor'), indent: t('status-indent'), language: t('status-language'), theme: t('status-theme'), env: t('status-env'), terminalOn: document.getElementById('terminal-button').classList.contains('on')}; })()",
         None,
     ),
     (

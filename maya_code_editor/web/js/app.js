@@ -9,10 +9,21 @@
   const statusEl = document.getElementById("status");
   const emptyState = document.getElementById("empty-state");
   const sidebar = document.getElementById("sidebar");
+  const STATUS_MESSAGE_MS = 6000;
+  let statusTimer = null;
 
+  /** Transient message in the status bar; clears itself after a few seconds. */
   function setStatus(text) {
-    statusEl.textContent = text;
+    statusEl.textContent = text || "";
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = text ? setTimeout(function () { statusEl.textContent = ""; }, STATUS_MESSAGE_MS) : null;
   }
+
+  function setText(id, text) {
+    document.getElementById(id).textContent = text || "";
+  }
+
+  const LANGUAGE_LABELS = { python: "Python", json: "JSON", markdown: "Markdown", html: "HTML", css: "CSS", javascript: "JavaScript", plaintext: "Plain Text" };
 
   function loadMonaco() {
     return new Promise(function (resolve, reject) {
@@ -116,8 +127,9 @@
     }
 
     const info = await bridge.ping();
-    const envLabel = (info.maya ? "Maya " + info.maya : "standalone") + " / Python " + info.python;
-    setStatus(envLabel);
+    const envLabel = (info.maya ? "Maya " + info.maya : "standalone") + " · Python " + info.python;
+    setText("status-env", envLabel);
+    setStatus("");
 
     let monaco;
     try {
@@ -133,6 +145,44 @@
     const workspace = await bridge.getWorkspace();
     document.getElementById("workspace-name").textContent = workspace.name;
     document.getElementById("workspace-name").title = workspace.root;
+    setText("status-theme", settings.editor.theme || "dark-modern");
+
+    // -- status bar / toolbar path -------------------------------------
+
+    const pathEl = document.getElementById("toolbar-path");
+
+    function updateCursorStatus() {
+      const pos = editor.getPosition();
+      const model = editor.getModel();
+      if (!pos || !model) { setText("status-cursor", ""); return; }
+      const sel = editor.getSelection();
+      const selected = sel && !sel.isEmpty() ? model.getValueLengthInRange(sel) : 0;
+      setText("status-cursor", "Ln " + pos.lineNumber + ", Col " + pos.column + (selected ? " (" + selected + " selected)" : ""));
+    }
+
+    /** Toolbar path plus the per-file items of the status bar. */
+    function updateFileStatus(tab) {
+      if (!tab) {
+        pathEl.textContent = "";
+        pathEl.title = "";
+        setText("status-cursor", "");
+        setText("status-indent", "");
+        setText("status-language", "");
+        return;
+      }
+      const full = tab.path || tab.title;
+      const rel = tab.path && tab.path.startsWith(workspace.root + "/") ? tab.path.slice(workspace.root.length + 1) : full;
+      pathEl.textContent = rel.split("/").join(" / ");
+      pathEl.title = full;
+      const opts = tab.model.getOptions();
+      setText("status-indent", (opts.insertSpaces ? "Spaces: " : "Tab Size: ") + opts.tabSize);
+      const lang = tab.model.getLanguageId();
+      setText("status-language", LANGUAGE_LABELS[lang] || lang);
+      updateCursorStatus();
+    }
+
+    editor.onDidChangeCursorPosition(updateCursorStatus);
+    editor.onDidChangeCursorSelection(updateCursorStatus);
 
     // -- session persistence ------------------------------------------
 
@@ -167,7 +217,7 @@
       onActivate: function (tab) {
         emptyState.hidden = !!tab;
         if (tab && tab.path) tree.select(tab.path);
-        setStatus(tab && tab.path ? tab.path : envLabel);
+        updateFileStatus(tab);
         scheduleSessionSave();
       },
       onContentChange: function (tab) {
@@ -203,7 +253,9 @@
     }
 
     function setTerminalButton(visible) {
-      document.getElementById("terminal-button").classList.toggle("off", !visible);
+      const button = document.getElementById("terminal-button");
+      button.classList.toggle("on", visible);
+      button.classList.toggle("off", !visible);
     }
 
     async function toggleTerminal() {
@@ -258,6 +310,7 @@
 
     document.getElementById("run-button").addEventListener("click", runActive);
     document.getElementById("save-button").addEventListener("click", saveActive);
+    document.getElementById("save-all-button").addEventListener("click", saveAll);
     document.getElementById("new-button").addEventListener("click", function () { tabs.newUntitled(); });
     document.getElementById("terminal-button").addEventListener("click", toggleTerminal);
     document.getElementById("settings-button").addEventListener("click", openSettings);
