@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ..qt import QObject, Slot
-from . import config, files
+from . import completion, config, files
 from .execution import PythonExecutor
 
 logger = getLogger(__name__)
@@ -155,6 +155,17 @@ class EditorBridge(QObject):
             True if execution was dispatched without a bridge-level error.
         """
         return self._executor.execute(code)
+
+    # -- completion ------------------------------------------------------
+
+    @Slot(str, str, result=str)
+    def complete(self, expression: str, source: str) -> str:
+        """Completion items for ``expression.`` as a JSON array. See :mod:`completion`."""
+        try:
+            return json.dumps(completion.complete(expression, source))
+        except Exception as exc:
+            logger.debug("completion failed for %r: %s", expression, exc)
+            return "[]"
 
     # -- files -----------------------------------------------------------
 

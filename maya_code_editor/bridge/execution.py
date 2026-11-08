@@ -30,20 +30,14 @@ HIDDEN_WINDOW_NAME = "mayaCodeEditorHiddenExecuter"
 
 
 def build_exec_globals() -> dict:
-    """Build the globals dict used by the standalone ``exec`` fallback.
+    """Return the globals dict used by the standalone ``exec`` fallback.
 
-    Returns:
-        A dict with ``__name__`` set to ``__main__`` plus ``cmds`` / ``om2``
-        when Maya modules are importable.
+    This is ``__main__``'s own namespace, matching Maya where the executer
+    runs code in ``__main__``; completion looks names up there as well.
     """
-    env: dict = {"__name__": "__main__"}
-    try:
-        import maya.api.OpenMaya as om2  # type: ignore
-        import maya.cmds as maya_cmds  # type: ignore
-    except ImportError:
-        return env
-    env.update({"cmds": maya_cmds, "om2": om2})
-    return env
+    import __main__
+
+    return vars(__main__)
 
 
 class PythonExecutor:

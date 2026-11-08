@@ -26,6 +26,7 @@ const MayaBridge = (function () {
       ping: function () { return call(raw, "ping").then(JSON.parse); },
       getWorkspace: function () { return call(raw, "get_workspace").then(JSON.parse); },
       runCode: function (code) { return call(raw, "run_code", code); },
+      complete: function (expression, source) { return call(raw, "complete", expression, source).then(JSON.parse); },
       toggleTerminal: function () { return call(raw, "toggle_terminal"); },
       getSettings: function () { return call(raw, "get_settings").then(JSON.parse); },
       getSession: function () { return call(raw, "get_session").then(JSON.parse); },

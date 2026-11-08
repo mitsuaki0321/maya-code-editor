@@ -280,6 +280,40 @@ STEPS: list[Step] = [
         ),
     ),
     (
+        "complete-imports",
+        "(async () => { const m = app.editor.getModel(); m.setValue('import os\\nimport json\\nimport maya.cmds as cmds\\nimport maya.api.OpenMaya as om2\\nimport maya.OpenMaya as om1\\n');"
+        " app.completion.invalidate(); const out = {};"
+        " for (const e of ['os', 'json', 'str', 'cmds', 'om2.MFnMesh', 'om1.MFnMesh', 'nonexistent_mod']) {"
+        "   const items = await app.completion.lookup(app.bridge, e, m); out[e] = {count: items.length, ms: Math.round(app.completion.lookup.lastMs * 10) / 10,"
+        "     has: ['path', 'dumps', 'upper', 'polyCube', 'getPoints'].filter(n => items.some(i => i.label === n))}; }"
+        " return out; })()",
+        None,
+    ),
+    (
+        "complete-live",
+        "(async () => { await app.bridge.runCode('live_list = [1, 2]\\n'); app.completion.invalidate();"
+        " const m = app.editor.getModel(); const items = await app.completion.lookup(app.bridge, 'live_list', m);"
+        " const top = await app.completion.lookup(app.bridge, '', m);"
+        " return {live: {count: items.length, hasAppend: items.some(i => i.label === 'append')},"
+        "   top: {count: top.length, has: ['print', 'def', 'live_list', 'cmds', 'os'].filter(n => top.some(i => i.label === n))}}; })()",
+        None,
+    ),
+    (
+        "complete-guard",
+        "(() => { const m = app.editor.getModel(); m.setValue('# cmds.\\nx = \"a.b\"\\ncmds.\\n'); const P = (l, c) => ({lineNumber: l, column: c});"
+        " return {inComment: app.completion.inCommentOrString(app.monaco, m, P(1, 8)), inString: app.completion.inCommentOrString(app.monaco, m, P(2, 8)), inCode: app.completion.inCommentOrString(app.monaco, m, P(3, 6))}; })()",
+        None,
+    ),
+    (
+        "complete-widget",
+        "(async () => { const m = app.editor.getModel(); m.setValue('import os\\nos.'); app.editor.setPosition({lineNumber: 2, column: 4}); app.editor.focus();"
+        " app.completion.invalidate(); app.editor.trigger('smoke', 'editor.action.triggerSuggest', {}); await new Promise(r => setTimeout(r, 900));"
+        " const w = document.querySelector('.suggest-widget'); const rows = w ? w.querySelectorAll('.monaco-list-row').length : -1;"
+        " const first = w ? (w.querySelector('.monaco-list-row .label-name') || {}).textContent : null; app.editor.trigger('smoke', 'hideSuggestWidget', {});"
+        " return {visible: !!w && w.getBoundingClientRect().height > 0, rows: rows, first: first}; })()",
+        None,
+    ),
+    (
         "session-save",
         "(app.tabs.newUntitled(), app.editor.setValue('draft text'), app.tabs.activate(app.tabs.tabs[0]), app.saveSessionNow(), {tabs: app.tabs.tabs.map(t => t.title), active: app.tabs.tabs.indexOf(app.tabs.activeTab), settingsFont: app.settings.editor.fontSize})",
         _check_session_file,

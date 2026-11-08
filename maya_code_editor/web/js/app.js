@@ -121,6 +121,7 @@
     const settings = await bridge.getSettings();
     const session = await bridge.getSession();
     const editor = createEditor(monaco, settings.editor);
+    Completion.register(monaco, bridge);
     const workspace = await bridge.getWorkspace();
     document.getElementById("workspace-name").textContent = workspace.name;
     document.getElementById("workspace-name").title = workspace.root;
@@ -185,6 +186,7 @@
       const selection = editor.getSelection();
       const code = selection && !selection.isEmpty() ? tab.model.getValueInRange(selection) : tab.model.getValue();
       const ok = await bridge.runCode(code);
+      Completion.invalidate(); // the live namespace may have changed
       if (!ok) setStatus("execution failed (see terminal)");
     }
 
@@ -290,7 +292,7 @@
     window.app = {
       bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, settings: settings,
       runActive: runActive, saveActive: saveActive, saveAll: saveAll, toggleWordWrap: toggleWordWrap, toggleTerminal: toggleTerminal,
-      checkExternalChanges: checkExternalChanges, saveSessionNow: saveSessionNow, restoredTabs: restored,
+      checkExternalChanges: checkExternalChanges, saveSessionNow: saveSessionNow, restoredTabs: restored, completion: Completion,
     };
     bridge.log("monaco ready (restored " + restored + " tabs)");
   }
