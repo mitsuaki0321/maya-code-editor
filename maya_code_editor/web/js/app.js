@@ -25,11 +25,46 @@
     });
   }
 
+  // Shell palettes for Monaco's built-in themes (custom themes ship their own `chrome`).
+  const DARK_CHROME = {
+    "bg": "#1e1e1e", "panel-bg": "#252526", "toolbar-bg": "#2d2d2d", "fg": "#cccccc", "muted": "#8a8a8a",
+    "border": "#3c3c3c", "hover": "#2a2d2e", "selected": "#37373d", "accent": "#0e639c", "accent-hover": "#1177bb",
+    "danger": "#c74e39", "tab-active-bg": "#1e1e1e", "tab-active-top": "#0e639c", "menu-bg": "#303031",
+    "dialog-bg": "#2b2b2c", "input-bg": "#1b1b1c", "input-border": "#3c3c3c",
+  };
+  const LIGHT_CHROME = {
+    "bg": "#fffffe", "panel-bg": "#f3f3f3", "toolbar-bg": "#f3f3f3", "fg": "#333333", "muted": "#717171",
+    "border": "#e5e5e5", "hover": "#e8e8e8", "selected": "#dcdcdc", "accent": "#007acc", "accent-hover": "#0062a3",
+    "danger": "#c74e39", "tab-active-bg": "#fffffe", "tab-active-top": "#007acc", "menu-bg": "#f3f3f3",
+    "dialog-bg": "#f3f3f3", "input-bg": "#ffffff", "input-border": "#cecece",
+  };
+  const BUILTIN_THEMES = ["vs", "vs-dark", "hc-black", "hc-light"];
+
+  /**
+   * Register the selected theme with Monaco and paint the shell to match.
+   * @returns {string} the Monaco theme name actually in use
+   */
+  function applyTheme(monaco, name) {
+    const custom = window.MCE_THEMES || {};
+    if (!custom[name] && !BUILTIN_THEMES.includes(name)) name = custom["dark-modern"] ? "dark-modern" : "vs-dark";
+    let chrome;
+    if (custom[name]) {
+      const t = custom[name];
+      monaco.editor.defineTheme(name, { base: t.base, inherit: t.inherit !== false, rules: t.rules, colors: t.colors });
+      chrome = Object.assign({}, t.base === "vs" ? LIGHT_CHROME : DARK_CHROME, t.chrome);
+    } else {
+      chrome = (name === "vs" || name === "hc-light") ? LIGHT_CHROME : DARK_CHROME;
+    }
+    const root = document.documentElement.style;
+    Object.keys(chrome).forEach(function (k) { root.setProperty("--" + k, chrome[k]); });
+    return name;
+  }
+
   function createEditor(monaco, editorSettings) {
     const s = editorSettings || {};
     return monaco.editor.create(document.getElementById("editor"), {
       model: null,
-      theme: "vs-dark",
+      theme: applyTheme(monaco, s.theme || "dark-modern"),
       automaticLayout: true,
       fontSize: s.fontSize || 13,
       tabSize: s.tabSize || 4,

@@ -49,10 +49,14 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 
 ```json
 {
-  "editor": { "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": false },
+  "editor": { "theme": "dark-modern", "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": false },
   "terminal": { "echoAllCommands": false, "showStackTrace": true }
 }
 ```
+
+`theme` は `dark-modern`（既定）/ `light-modern`（VS Code から移植）か、Monaco 組み込みの `vs` / `vs-dark` / `hc-black` / `hc-light`。
+移植テーマは `dev/convert_vscode_theme.py` で VS Code 同梱の JSON から生成している（`web/themes/*.js`）。
+Monaco の Python トークン分けは VS Code より粗いので、関数名・変数名・制御キーワードの色分けは再現されない。
 
 ## 開発
 

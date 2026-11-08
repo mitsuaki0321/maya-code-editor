@@ -163,6 +163,12 @@ STEPS: list[Step] = [
         lambda: "terminal visible=%s" % _WINDOW["ref"].terminal.isVisible(),
     ),
     (
+        "theme",
+        "({theme: app.settings.editor.theme, editorBg: getComputedStyle(document.querySelector('.monaco-editor .monaco-editor-background')).backgroundColor,"
+        " shellBg: getComputedStyle(document.body).backgroundColor, sidebarBg: getComputedStyle(document.getElementById('sidebar')).backgroundColor})",
+        None,
+    ),
+    (
         "save-all",
         "(async () => { const r = app.workspace.root; await app.tabs.openFile(r + '/sub/nested.py');"
         " app.editor.executeEdits('s', [{range: new app.monaco.Range(1e6, 1, 1e6, 1), text: '# saveall\\n'}]);"
@@ -281,7 +287,10 @@ STEPS: list[Step] = [
 ]
 
 RESTORE_JS = (
-    "window.app ? JSON.stringify({restored: app.restoredTabs, tabs: app.tabs.tabs.map(t => ({title: t.title, dirty: app.tabs.isDirty(t)})),"
+    "window.app ? JSON.stringify({restored: app.restoredTabs, theme: app.settings.editor.theme,"
+    " editorBg: getComputedStyle(document.querySelector('.monaco-editor .monaco-editor-background')).backgroundColor,"
+    " shellBg: getComputedStyle(document.body).backgroundColor,"
+    " tabs: app.tabs.tabs.map(t => ({title: t.title, dirty: app.tabs.isDirty(t)})),"
     " active: app.tabs.activeTab && app.tabs.activeTab.title, draft: (app.tabs.tabs.find(t => !t.path) || {model: {getValue: () => null}}).model.getValue()}) : ''"
 )
 
@@ -374,8 +383,13 @@ def _check_real_mmb_drag(window, run_js: Callable, on_done: Callable[[], None]) 
 def _verify_restore(
     make_window: Callable, legacy_signature: bool, on_done: Callable[[], None]
 ) -> None:
-    """Open a second window and log what it restored from session.json."""
+    """Open a second window (switched to light-modern) and log what it restored."""
     from maya_code_editor.qt import QTimer
+
+    settings_file = CONFIG_DIR / "settings.json"
+    settings = json.loads(settings_file.read_text(encoding="utf-8"))
+    settings.setdefault("editor", {})["theme"] = "light-modern"
+    settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
     window2 = make_window()
     _WINDOW["restore_ref"] = window2  # keep alive

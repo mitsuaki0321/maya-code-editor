@@ -27,6 +27,7 @@ SESSION_FILE = "session.json"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "editor": {
+        "theme": "dark-modern",  # dark-modern / light-modern / vs / vs-dark / hc-black / hc-light
         "fontSize": 13,
         "tabSize": 4,
         "wordWrap": "off",

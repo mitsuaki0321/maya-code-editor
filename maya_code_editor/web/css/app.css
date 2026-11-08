@@ -1,3 +1,5 @@
+/* Default palette (VS Code dark). app.js overrides these variables from the
+   selected theme's chrome block, so no color below should be used directly. */
 :root {
   --bg: #1e1e1e;
   --panel-bg: #252526;
@@ -10,6 +12,12 @@
   --accent: #0e639c;
   --accent-hover: #1177bb;
   --danger: #c74e39;
+  --tab-active-bg: #1e1e1e;
+  --tab-active-top: #0e639c;
+  --menu-bg: #303031;
+  --dialog-bg: #2b2b2c;
+  --input-bg: #1b1b1c;
+  --input-border: #3c3c3c;
   --font-ui: "Segoe UI", system-ui, sans-serif;
   --sidebar-width: 220px;
 }
@@ -163,7 +171,7 @@ button {
 }
 .tree-node:hover { background: var(--hover); }
 .tree-node.selected { background: var(--selected); }
-.tree-node.open-in-tab .tree-label { color: #e8e8e8; }
+.tree-node.open-in-tab .tree-label { color: var(--fg); font-weight: 500; }
 
 .tree-arrow {
   width: 16px;
@@ -196,7 +204,7 @@ button {
 body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
 .drag-ghost {
   position: fixed; z-index: 150; pointer-events: none;
-  background: #303031; color: var(--fg); border: 1px solid var(--border); border-radius: 3px;
+  background: var(--menu-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 3px;
   padding: 2px 8px; font-size: 11px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
@@ -225,7 +233,7 @@ body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
   flex: 0 0 auto;
 }
 .tab:hover { background: var(--hover); }
-.tab.active { background: var(--bg); color: var(--fg); border-top: 1px solid var(--accent); }
+.tab.active { background: var(--tab-active-bg); color: var(--fg); border-top: 1px solid var(--tab-active-top); }
 
 .tab-title {
   overflow: hidden;
@@ -254,11 +262,12 @@ body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
   position: fixed;
   z-index: 100;
   min-width: 160px;
-  background: #303031;
+  background: var(--menu-bg);
+  color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 4px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 #context-menu[hidden] { display: none; }
 
@@ -287,10 +296,11 @@ body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
 #dialog {
   width: 360px;
   max-width: 90vw;
-  background: #2b2b2c;
+  background: var(--dialog-bg);
+  color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   padding: 14px 16px 12px;
   display: flex;
   flex-direction: column;
@@ -303,8 +313,8 @@ body.dragging-files, body.dragging-files * { cursor: grabbing !important; }
 
 #dialog-input {
   width: 100%;
-  background: #1b1b1c;
-  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 3px;
   color: var(--fg);
   padding: 5px 8px;
