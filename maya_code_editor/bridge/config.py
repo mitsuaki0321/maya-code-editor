@@ -95,11 +95,18 @@ def _merge(defaults: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any
 
 
 def load_settings() -> dict[str, Any]:
-    """Load settings merged over the defaults, writing the file if it is missing."""
+    """Load settings merged over the defaults.
+
+    The file is (re)written whenever it is missing a key, so it always lists
+    every available setting with its current value. Unknown keys the user
+    added are kept.
+    """
     path = settings_path()
-    if not path.exists():
-        _write_json(path, DEFAULT_SETTINGS)
-    return _merge(DEFAULT_SETTINGS, _read_json(path))
+    stored = _read_json(path)
+    merged = _merge(DEFAULT_SETTINGS, stored)
+    if merged != stored:
+        _write_json(path, merged)
+    return merged
 
 
 def update_setting(section: str, key: str, value: Any) -> None:
