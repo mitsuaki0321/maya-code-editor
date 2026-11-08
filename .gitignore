@@ -13,3 +13,6 @@ dev/out/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local design notes (kept on disk, not versioned)
+sample_docs/
