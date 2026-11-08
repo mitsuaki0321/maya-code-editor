@@ -149,5 +149,3 @@ maya_code_editor/
 ├── integration/     workspaceControl docking
 └── web/             index.html, css, js (bridge / dialogs / completion / file_tree / tabs / app), themes, vendor/monaco
 ```
-
-Design notes are in `sample_docs/`.
