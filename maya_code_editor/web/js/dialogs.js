@@ -136,5 +136,17 @@ const Dialogs = (function () {
     }).then(function (id) { return id === "cancel" ? null : id; });
   }
 
-  return { show: show, confirm: confirm, prompt: prompt, error: error, confirmClose: confirmClose };
+  /** File changed on disk while the tab has edits. Resolves "reload" | "keep". */
+  function externalChange(title) {
+    return show({
+      title: title + " was changed on disk",
+      message: "You have unsaved changes in this tab. Reload from disk and lose them, or keep your version?",
+      buttons: [
+        { id: "reload", label: "Reload", danger: true },
+        { id: "keep", label: "Keep Mine", primary: true },
+      ],
+    }).then(function (id) { return id === "reload" ? "reload" : "keep"; });
+  }
+
+  return { show: show, confirm: confirm, prompt: prompt, error: error, confirmClose: confirmClose, externalChange: externalChange };
 })();

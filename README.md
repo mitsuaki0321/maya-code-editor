@@ -26,6 +26,9 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 |---|---|
 | 実行（選択範囲、無ければ全文） | Ctrl+Enter / Run |
 | 保存 / 新規 / タブを閉じる | Ctrl+S / Ctrl+N / Ctrl+W |
+| すべて保存 | Ctrl+K → S、またはコマンドパレット（F1）の Maya: Save All |
+| ワードラップ切替 | Alt+Z（settings.json に保存される） |
+| 外部で変更されたファイル | 未編集のタブは自動で再読込。編集中なら Reload / Keep Mine を確認 |
 | ファイル操作 | ツリーの右クリック（New File / New Folder / Rename / Delete / Reveal in Explorer / Refresh） |
 | 複数選択 | Ctrl+クリック / Shift+クリック |
 | 移動 | 中ボタンでドラッグしてフォルダへ（空白にドロップでルート） |

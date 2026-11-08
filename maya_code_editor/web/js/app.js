@@ -171,6 +171,46 @@
       bridge.openSettingsFile().catch(function (err) { Dialogs.error(err.message); });
     }
 
+    async function saveAll() {
+      const n = await tabs.saveAll();
+      if (n > 0) await tree.refresh();
+      setStatus(n === 1 ? "saved 1 file" : "saved " + n + " files");
+      return n;
+    }
+
+    function toggleWordWrap() {
+      const next = editor.getOption(monaco.editor.EditorOption.wordWrap) === "off" ? "on" : "off";
+      editor.updateOptions({ wordWrap: next });
+      settings.editor.wordWrap = next;
+      bridge.setSetting("editor", "wordWrap", next);
+      setStatus("word wrap " + next);
+      return next;
+    }
+
+    // -- external changes: poll open files every 2 s and on focus --------
+
+    let checking = false;
+    async function checkExternalChanges() {
+      if (checking) return [];
+      checking = true;
+      try {
+        const events = await tabs.checkExternalChanges();
+        for (const e of events) {
+          const name = e.path.slice(e.path.lastIndexOf("/") + 1);
+          if (e.action === "reloaded") setStatus("reloaded " + name + " (changed on disk)");
+          else if (e.action === "deleted") setStatus(name + " was deleted on disk; saving will recreate it");
+        }
+        return events;
+      } finally {
+        checking = false;
+      }
+    }
+    setInterval(checkExternalChanges, 2000);
+    window.addEventListener("focus", function () {
+      checkExternalChanges();
+      tree.refresh();
+    });
+
     document.getElementById("run-button").addEventListener("click", runActive);
     document.getElementById("save-button").addEventListener("click", saveActive);
     document.getElementById("new-button").addEventListener("click", function () { tabs.newUntitled(); });
@@ -186,6 +226,8 @@
       { id: "mce.newFile", label: "Maya: New Untitled File", keybindings: [K.CtrlCmd | C.KeyN], run: function () { tabs.newUntitled(); } },
       { id: "mce.closeTab", label: "Maya: Close Tab", keybindings: [K.CtrlCmd | C.KeyW], run: function () { tabs.close(); } },
       { id: "mce.toggleTerminal", label: "Maya: Toggle Terminal", run: toggleTerminal },
+      { id: "mce.saveAll", label: "Maya: Save All", keybindings: [K.chord(K.CtrlCmd | C.KeyK, C.KeyS)], run: saveAll },
+      { id: "mce.toggleWordWrap", label: "Maya: Toggle Word Wrap", keybindings: [K.Alt | C.KeyZ], run: toggleWordWrap },
     ];
     ACTIONS.forEach(function (a) { editor.addAction(a); });
 
@@ -212,7 +254,8 @@
 
     window.app = {
       bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, settings: settings,
-      runActive: runActive, saveActive: saveActive, toggleTerminal: toggleTerminal, saveSessionNow: saveSessionNow, restoredTabs: restored,
+      runActive: runActive, saveActive: saveActive, saveAll: saveAll, toggleWordWrap: toggleWordWrap, toggleTerminal: toggleTerminal,
+      checkExternalChanges: checkExternalChanges, saveSessionNow: saveSessionNow, restoredTabs: restored,
     };
     bridge.log("monaco ready (restored " + restored + " tabs)");
   }

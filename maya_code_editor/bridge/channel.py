@@ -86,6 +86,27 @@ class EditorBridge(QObject):
         if self._session_put and isinstance(state, dict):
             self._session_put(state)
 
+    @Slot(str, str, str)
+    def set_setting(self, section: str, key: str, value_json: str) -> None:
+        """Write one setting (``value_json`` is a JSON scalar) to settings.json."""
+        try:
+            value = json.loads(value_json)
+        except ValueError:
+            logger.warning("Ignoring malformed setting value for %s.%s", section, key)
+            return
+        config.update_setting(section, key, value)
+
+    @Slot(str, result=str)
+    def stat_paths(self, paths_json: str) -> str:
+        """Return mtimes for a JSON array of paths. See :func:`files.stat_paths`."""
+        try:
+            paths = json.loads(paths_json)
+        except ValueError:
+            paths = []
+        if not isinstance(paths, list):
+            paths = []
+        return files.stat_paths(self._root, [str(p) for p in paths]).to_json()
+
     @Slot(result=str)
     def open_settings_file(self) -> str:
         """Open ``settings.json`` with the OS default application."""

@@ -98,6 +98,22 @@ def read_text(root: Path, raw_path: str) -> FileResult:
         return _fail(f"Cannot read {path}: {exc}")
 
 
+def stat_paths(root: Path, raw_paths: list[str]) -> FileResult:
+    """Return modification times for open files.
+
+    ``data`` maps each requested path to its mtime in seconds, or ``None``
+    when the file no longer exists (or lies outside the workspace).
+    """
+    result: dict[str, Optional[float]] = {}
+    for raw in raw_paths:
+        path = _resolve_inside(root, raw)
+        try:
+            result[raw] = path.stat().st_mtime if path is not None else None
+        except OSError:
+            result[raw] = None
+    return FileResult(ok=True, data=result)
+
+
 def write_text(root: Path, raw_path: str, content: str) -> FileResult:
     """Write ``content`` to a UTF-8 text file, creating it if missing."""
     path = _resolve_inside(root, raw_path)

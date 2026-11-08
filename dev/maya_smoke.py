@@ -163,6 +163,76 @@ STEPS: list[Step] = [
         lambda: "terminal visible=%s" % _WINDOW["ref"].terminal.isVisible(),
     ),
     (
+        "save-all",
+        "(async () => { const r = app.workspace.root; await app.tabs.openFile(r + '/sub/nested.py');"
+        " app.editor.executeEdits('s', [{range: new app.monaco.Range(1e6, 1, 1e6, 1), text: '# saveall\\n'}]);"
+        " await app.tabs.openFile(r + '/hello.py'); app.editor.executeEdits('s', [{range: new app.monaco.Range(1e6, 1, 1e6, 1), text: '# saveall\\n'}]);"
+        " const n = await app.saveAll(); const dirty = app.tabs.tabs.map(t => app.tabs.isDirty(t));"
+        " await app.tabs.close(app.tabs.findByPath(r + '/sub/nested.py'), true);"
+        " return {saved: n, dirtyAfter: dirty, tabs: app.tabs.tabs.map(t => t.title)}; })()",
+        lambda: (
+            "saveall in hello=%s nested=%s"
+            % (
+                "# saveall" in (WORKSPACE / "hello.py").read_text(encoding="utf-8"),
+                "# saveall"
+                in (WORKSPACE / "sub" / "nested.py").read_text(encoding="utf-8"),
+            )
+        ),
+    ),
+    (
+        "wordwrap-on",
+        "({toggled: app.toggleWordWrap(), option: app.editor.getOption(app.monaco.editor.EditorOption.wordWrap)})",
+        lambda: (
+            "settings wordWrap=%s"
+            % json.loads((CONFIG_DIR / "settings.json").read_text(encoding="utf-8"))[
+                "editor"
+            ]["wordWrap"]
+        ),
+    ),
+    (
+        "wordwrap-off",
+        "({toggled: app.toggleWordWrap()})",
+        lambda: (
+            "settings wordWrap=%s"
+            % json.loads((CONFIG_DIR / "settings.json").read_text(encoding="utf-8"))[
+                "editor"
+            ]["wordWrap"]
+        ),
+    ),
+    (
+        "external-modify",
+        "'clean tab, modifying on disk'",
+        lambda: (
+            "written: %s"
+            % (WORKSPACE / "hello.py").write_text(
+                'print("external")\n', encoding="utf-8"
+            )
+        ),
+    ),
+    (
+        "external-reload",
+        "app.checkExternalChanges().then(ev => ({events: ev.map(e => e.action), value: app.editor.getValue(), dirty: app.tabs.isDirty(app.tabs.activeTab)}))",
+        None,
+    ),
+    (
+        "external-dirty-edit",
+        "(app.editor.executeEdits('x', [{range: new app.monaco.Range(1e6, 1, 1e6, 1), text: '# mine\\n'}]), {dirty: app.tabs.isDirty(app.tabs.activeTab)})",
+        lambda: (
+            "written: %s"
+            % (WORKSPACE / "hello.py").write_text(
+                'print("external 2")\n', encoding="utf-8"
+            )
+        ),
+    ),
+    (
+        "external-dialog-keep",
+        "(async () => { const p = app.checkExternalChanges(); await new Promise(res => setTimeout(res, 500));"
+        " const shown = !document.getElementById('dialog-overlay').hidden; const title = document.getElementById('dialog-title').textContent;"
+        " const btn = document.getElementById('dialog-btn-keep'); if (btn) btn.click(); const ev = await p; const again = await app.checkExternalChanges();"
+        " return {shown: shown, title: title, events: ev.map(e => e.action), againEvents: again.length, dirty: app.tabs.isDirty(app.tabs.activeTab), value: app.editor.getValue()}; })()",
+        None,
+    ),
+    (
         "delete",
         "app.bridge.files.remove(app.workspace.root + '/renamed.py').then(() => app.tree.refresh()).then(() => Array.from(document.querySelectorAll('#file-tree .tree-label')).map(n => n.textContent))",
         _check_deleted,

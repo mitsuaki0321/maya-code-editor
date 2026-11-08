@@ -57,6 +57,7 @@ class Tabs {
     }
     const content = await this.files.read(path);
     const tab = this._createTab(path, content);
+    await this._recordMtime(tab);
     this.activate(tab);
     return tab;
   }
@@ -95,6 +96,8 @@ class Tabs {
       model: model,
       viewState: null,
       savedVersionId: model.getAlternativeVersionId(),
+      mtime: null,          // disk mtime when last read or written
+      keepExternal: false,  // user chose "Keep Mine" after an external change
       el: null,
     };
     tab.el = this._makeTabElement(tab);
@@ -185,16 +188,95 @@ class Tabs {
       return false;
     }
     tab.savedVersionId = tab.model.getAlternativeVersionId();
+    tab.keepExternal = false;
+    await this._recordMtime(tab);
     this._updateDirty(tab);
     this.handlers.onChange();
     return true;
   }
 
+  /**
+   * Save every dirty tab in order; stops at the first cancel or failure.
+   * @returns {Promise<number>} number of tabs saved
+   */
   async saveAll() {
+    let saved = 0;
     for (const tab of this.tabs.slice()) {
-      if (this.isDirty(tab) && !(await this.save(tab))) return false;
+      if (!this.isDirty(tab)) continue;
+      if (!(await this.save(tab))) break;
+      saved += 1;
     }
-    return true;
+    return saved;
+  }
+
+  // -- external changes on disk ----------------------------------------
+
+  async _recordMtime(tab) {
+    if (!tab.path) return;
+    try {
+      const stat = await this.files.stat([tab.path]);
+      tab.mtime = stat[tab.path];
+    } catch (err) {
+      tab.mtime = null;
+    }
+  }
+
+  /**
+   * Compare open files with the disk. Clean tabs reload silently; dirty
+   * tabs ask once (Reload / Keep Mine); deleted files are reported.
+   * @returns {Promise<Array<{path:string, action:string}>>} what happened
+   */
+  async checkExternalChanges() {
+    const fileTabs = this.tabs.filter((t) => t.path);
+    if (!fileTabs.length) return [];
+    let stat;
+    try {
+      stat = await this.files.stat(fileTabs.map((t) => t.path));
+    } catch (err) {
+      return [];
+    }
+    const events = [];
+    for (const tab of fileTabs) {
+      const mtime = stat[tab.path];
+      if (mtime === null || mtime === undefined) {
+        if (tab.mtime !== null) {
+          tab.mtime = null;
+          events.push({ path: tab.path, action: "deleted" });
+        }
+        continue;
+      }
+      if (tab.mtime === null || mtime === tab.mtime) continue;
+      if (!this.isDirty(tab)) {
+        await this.reloadFromDisk(tab);
+        events.push({ path: tab.path, action: "reloaded" });
+      } else if (!tab.keepExternal) {
+        const choice = await Dialogs.externalChange(tab.title);
+        if (choice === "reload") {
+          await this.reloadFromDisk(tab);
+          events.push({ path: tab.path, action: "reloaded" });
+        } else {
+          tab.keepExternal = true;
+          tab.mtime = mtime;
+          events.push({ path: tab.path, action: "kept" });
+        }
+      }
+    }
+    return events;
+  }
+
+  /** Replace the model text with the file on disk, keeping undo history and view state. */
+  async reloadFromDisk(tab) {
+    const content = await this.files.read(tab.path);
+    const isActive = this.active === tab;
+    const viewState = isActive ? this.editor.saveViewState() : tab.viewState;
+    const model = tab.model;
+    model.pushEditOperations([], [{ range: model.getFullModelRange(), text: content }], () => null);
+    tab.savedVersionId = model.getAlternativeVersionId();
+    tab.keepExternal = false;
+    if (isActive && viewState) this.editor.restoreViewState(viewState);
+    else tab.viewState = viewState;
+    await this._recordMtime(tab);
+    this._updateDirty(tab);
   }
 
   // -- close -----------------------------------------------------------
@@ -278,6 +360,7 @@ class Tabs {
         tab.title = this._nameOf(tab.path);
         tab.el.querySelector(".tab-title").textContent = tab.title;
         this.monaco.editor.setModelLanguage(tab.model, this._languageFor(tab.path));
+        this._recordMtime(tab);
       }
     }
     this.handlers.onChange();

@@ -31,6 +31,7 @@ const MayaBridge = (function () {
       getSession: function () { return call(raw, "get_session").then(JSON.parse); },
       saveSession: function (state) { raw.save_session(JSON.stringify(state)); },
       openSettingsFile: function () { return fileCall(raw, "open_settings_file"); },
+      setSetting: function (section, key, value) { raw.set_setting(section, key, JSON.stringify(value)); },
       log: function (message) { raw.log(message); },
       files: {
         listDir: function (path) { return fileCall(raw, "list_dir", path); },
@@ -42,6 +43,7 @@ const MayaBridge = (function () {
         remove: function (path) { return fileCall(raw, "delete_path", path); },
         reveal: function (path) { return fileCall(raw, "reveal_path", path); },
         move: function (path, destDir) { return fileCall(raw, "move_path", path, destDir); },
+        stat: function (paths) { return fileCall(raw, "stat_paths", JSON.stringify(paths)); },
       },
     };
   }
