@@ -1,14 +1,18 @@
 # Maya Code Editor
 
-Monaco Editor を QWebEngineView に載せた Maya 用の Python スクリプトエディタ。
-エディタ機能は Monaco 標準に任せ、自前で書くのは Maya 統合とファイル・タブ・セッションの最小限だけ。
+A Python script editor for Maya built on Monaco Editor inside a QWebEngineView.
+Editing features come from Monaco as-is; the only custom code is the Maya
+integration plus a minimal file tree, tabs and session handling.
 
-対象: Maya 2023 以降。PySide6（2025+）と PySide2（2023 / 2024）の両方に対応し、Qt の違いは `maya_code_editor/qt.py` で吸収している。
-同梱の Monaco は 0.44.0。Maya 2023 / 2024 の QtWebEngine（Chromium 83 / 87）で動く最新版で、それより新しい Monaco は読み込めない。
+Supported: Maya 2023 and later. Both PySide6 (2025+) and PySide2 (2023 / 2024)
+work; the differences are absorbed in `maya_code_editor/qt.py`.
+The bundled Monaco is 0.44.0, the newest release that runs on the QtWebEngine
+shipped with Maya 2023 / 2024 (Chromium 83 / 87); newer Monaco builds fail to
+load there.
 
-## 起動
+## Launch
 
-Script Editor（Python）やシェルフボタン、自分のツールのメニューから:
+From the Script Editor (Python), a shelf button or your own tool menu:
 
 ```python
 import sys
@@ -17,47 +21,61 @@ import maya_code_editor
 maya_code_editor.show_ui()
 ```
 
-2 回目以降の `show_ui()` は既存のパネルを前面に出すだけ。
-Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは stdout 表示の簡易版）。
+Calling `show_ui()` again brings the existing panel to the front.
+Outside Maya, `python -m maya_code_editor` opens a standalone window (the
+terminal is a plain stdout view there).
 
-## 使い方
+## Usage
 
-| 操作 | キー / 場所 |
+| Action | Key / location |
 |---|---|
-| 実行（選択範囲、無ければ全文） | Ctrl+Enter / Run |
-| 保存 / 新規 / タブを閉じる | Ctrl+S / Ctrl+N / Ctrl+W |
-| すべて保存 | Ctrl+K → S、またはコマンドパレット（F1）の Maya: Save All |
-| ワードラップ切替 | Alt+Z（settings.json に保存される） |
-| 外部で変更されたファイル | 未編集のタブは自動で再読込。編集中なら Reload / Keep Mine を確認 |
-| ファイル操作 | ツリーの右クリック（New File / New Folder / Rename / Delete / Reveal in Explorer / Refresh） |
-| 複数選択 | Ctrl+クリック / Shift+クリック |
-| 移動 | 中ボタンでドラッグしてフォルダへ（空白にドロップでルート） |
-| 補完 | `.` を打つか識別子を 2 文字以上入力すると候補が出る（下記） |
-| ターミナル表示切替 | ツールバーの Terminal |
-| Echo All Commands / Show Stack Trace | ターミナルの右クリックメニュー |
+| Run (selection, or the whole buffer when nothing is selected) | Ctrl+Enter / Run |
+| Save / New / Close tab | Ctrl+S / Ctrl+N / Ctrl+W |
+| Save All | Ctrl+K then S, or "Maya: Save All" in the command palette (F1) |
+| Toggle word wrap | Alt+Z (stored in settings.json) |
+| Completion | Type `.` or two or more characters of an identifier (see below) |
+| Files changed on disk | Clean tabs reload automatically; dirty tabs ask Reload / Keep Mine |
+| File operations | Right-click in the tree (New File / New Folder / Rename / Delete / Reveal in Explorer / Refresh) |
+| Multi-select | Ctrl+click / Shift+click |
+| Move | Drag with the middle mouse button onto a folder (drop on empty space for the root) |
+| Toggle terminal | Terminal button on the toolbar |
+| Echo All Commands / Show Stack Trace | Right-click menu of the terminal |
 
-エディタ内の操作（検索置換、マルチカーソル、折りたたみ、行移動など）は VS Code と同じキーバインド。
+Editing (find / replace, multi-cursor, folding, line moves, ...) uses the same
+key bindings as VS Code.
 
-### 補完の仕組み
+### How completion works
 
-静的解析（jedi など）は使わず、Maya のセッションで生きているオブジェクトを `dir()` で覗く（Script Editor と同じ考え方）。
+There is no static analysis (no jedi). The editor inspects live objects in
+the Maya session with `dir()`, the same idea as the Script Editor.
 
-- `cmds.` / `om2.MFnMesh.` / 実行済みの変数 など、`__main__` から辿れるものはすべて対象
-- バッファ内の `import` / `from ... import` 文は実行前でも解決する（`import os` と書けば `os.` が効く）
-- 組み込み型（`str.` など）と、ドット無しの場合は組み込み関数・キーワード・`__main__` の名前
-- コメントと文字列の中では出ない。`()` や `[]` を含む式は評価しない（副作用を避ける）
-- 結果は式ごとにキャッシュし、コードを実行するたびに捨てる。起動時やバックグラウンドの処理は無い
-- 候補の確定は Tab または Enter（Monaco 既定）。Enter を常に改行にしたい場合は settings.json に `"acceptSuggestionOnEnter": "off"` を書く。Esc で候補を閉じる
+- Anything reachable from `__main__`: `cmds.`, `om2.MFnMesh.`, variables you
+  have already executed, third-party modules you imported
+- `import` / `from ... import` lines in the buffer are resolved before the
+  code runs, so `import os` makes `os.` work immediately
+- Built-in types (`str.`) and, without a dot, builtins, keywords and names in
+  `__main__`
+- Nothing is suggested inside comments or strings. Expressions containing
+  `()` or `[]` are never evaluated (no side effects)
+- Results are cached per expression and dropped every time code is executed.
+  Nothing runs at startup or in the background
+- Accept with Tab or Enter (Monaco default). Put
+  `"acceptSuggestionOnEnter": "off"` in settings.json to make Enter always
+  insert a newline. Esc closes the list
 
-## ファイルの場所
+## File locations
 
-| 内容 | パス |
+| Content | Path |
 |---|---|
-| ワークスペース（ツリーのルート） | `~/Documents/maya/maya_code_editor_workspace`（環境変数 `MAYA_CODE_EDITOR_WORKSPACE` で変更） |
-| 設定 | `~/Documents/maya/maya_code_editor/settings.json`（ツールバーの Settings で開く。反映は次回起動時） |
-| セッション | `~/Documents/maya/maya_code_editor/session.json`（自動保存。開いていたタブと Untitled の下書き） |
+| Workspace (root of the tree) | `~/Documents/maya/maya_code_editor_workspace` (override with `MAYA_CODE_EDITOR_WORKSPACE`) |
+| Settings | `~/Documents/maya/maya_code_editor/settings.json` (open with the Settings button; applied on next start) |
+| Session | `~/Documents/maya/maya_code_editor/session.json` (written automatically: open tabs and Untitled drafts) |
 
-`settings.json` の例:
+## Settings
+
+`settings.json` is created with every key the editor defines; keys added in
+later versions are filled in with their defaults on the next start, and
+anything you add is kept.
 
 ```json
 {
@@ -66,40 +84,70 @@ Maya 外で試す場合は `python -m maya_code_editor`（ターミナルは std
 }
 ```
 
-`editor` のキーは `theme` 以外そのまま Monaco に渡される（`IEditorOptions` の名前。VS Code の `editor.*` とほぼ同じ）。
-例: `"lineNumbers": "relative"`, `"renderWhitespace": "boundary"`, `"cursorBlinking": "smooth"`, `"bracketPairColorization": {"enabled": true}`。
-`minimap` だけは真偽値でも書ける。型が違う値は Monaco が既定値に戻す。
+### Any Monaco option
 
-`theme` は `dark-modern`（既定）/ `light-modern`（VS Code から移植）か、Monaco 組み込みの `vs` / `vs-dark` / `hc-black` / `hc-light`。
-移植テーマは `dev/convert_vscode_theme.py` で VS Code 同梱の JSON から生成している（`web/themes/*.js`）。
-Monaco の Python トークン分けは VS Code より粗いので、関数名・変数名・制御キーワードの色分けは再現されない。
+Every key in the `editor` section except `theme` is passed straight to
+Monaco as an editor option, so the full `IEditorOptions` surface is
+available (the names match VS Code's `editor.*` settings). Examples:
 
-## 開発
+```json
+"editor": {
+  "theme": "dark-modern",
+  "fontSize": 13,
+  "lineNumbers": "relative",
+  "renderWhitespace": "boundary",
+  "cursorBlinking": "smooth",
+  "bracketPairColorization": { "enabled": true },
+  "quickSuggestions": { "other": true, "comments": false, "strings": false },
+  "acceptSuggestionOnEnter": "off"
+}
+```
+
+`minimap` may also be written as a plain boolean. Values of the wrong type
+are reset to Monaco's defaults. Options the app sets itself
+(`insertSpaces`, `mouseWheelZoom`, `scrollBeyondLastLine`,
+`renderLineHighlight`) can be overridden the same way.
+
+### Themes
+
+`theme` is `dark-modern` (default) or `light-modern`, both converted from
+the themes bundled with VS Code, or one of Monaco's built-ins: `vs`,
+`vs-dark`, `hc-black`, `hc-light`. The toolbar, tree, tabs and dialogs follow
+the selected theme.
+
+The converted themes live in `web/themes/*.js` and are generated by
+`dev/convert_vscode_theme.py` from VS Code's own JSON files. Monaco's Python
+tokenizer is coarser than VS Code's, so function names, variable names and
+control keywords are not colored separately.
+
+## Development
 
 ```
-python dev/maya_smoke.py              # Maya 2025 を起動して自動検証（ログは dev/out/）
-python dev/maya_smoke.py --maya 2023  # 他のバージョンで検証
-python dev/maya_smoke.py --standalone # Maya なしで同じ手順
+python dev/maya_smoke.py              # launch Maya 2025 and run the automated checks (logs in dev/out/)
+python dev/maya_smoke.py --maya 2023  # another Maya version
+python dev/maya_smoke.py --standalone # same steps without Maya
 ```
 
-検証は一時ワークスペースと一時設定フォルダを使うので、実データには触れない。
-コードは `ruff format` / `ruff check` を通す。
+The checks use a temporary workspace and a temporary config folder, so your
+real files are never touched. Code is formatted and linted with
+`ruff format` / `ruff check`.
 
-## 構成
+## Layout
 
 ```
 maya_code_editor/
-├── main.py          QSplitter(WebView + ターミナル)、show_ui()、セッション保存
-├── qt.py            PySide6 / PySide2 の切り替えシム
-├── bridge/          QWebChannel で JS に公開する Python API
-│   ├── channel.py   スロット定義（薄いラッパー）
-│   ├── files.py     ワークスペース内のファイル操作
-│   ├── execution.py 隠し cmdScrollFieldExecuter での実行
+├── main.py          QSplitter(WebView + terminal), show_ui(), session saving
+├── qt.py            PySide6 / PySide2 shim
+├── bridge/          Python API exposed to JS through QWebChannel
+│   ├── channel.py   slot definitions (thin wrappers)
+│   ├── files.py     file operations inside the workspace
+│   ├── execution.py execution through a hidden cmdScrollFieldExecuter
+│   ├── completion.py live-object completion
 │   ├── config.py    settings.json / session.json
-│   └── workspace.py ルートの解決
-├── terminal/        cmdScrollFieldReporter（Maya）/ QPlainTextEdit（単体）
-├── integration/     workspaceControl ドック
-└── web/             index.html、css、js（bridge / dialogs / file_tree / tabs / app）、vendor/monaco
+│   └── workspace.py workspace root resolution
+├── terminal/        cmdScrollFieldReporter (Maya) / QPlainTextEdit (standalone)
+├── integration/     workspaceControl docking
+└── web/             index.html, css, js (bridge / dialogs / completion / file_tree / tabs / app), themes, vendor/monaco
 ```
 
-設計メモは `sample_docs/` を参照。
+Design notes are in `sample_docs/`.
