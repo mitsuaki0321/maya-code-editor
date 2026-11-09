@@ -12,11 +12,9 @@ Maya で Python スクリプトを書いて実行するためのエディタで�
 
 ## 起動
 
-Script Editor の Python タブで次を実行します。パスはこのリポジトリを置いた場所に合わせてください。
+このリポジトリのフォルダを Maya の `PYTHONPATH` に追加したうえで、Script Editor の Python タブで次を実行します。
 
 ```python
-import sys
-sys.path.insert(0, r"D:\claude\maya-code-editor")
 import maya_code_editor
 maya_code_editor.show_ui()
 ```

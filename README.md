@@ -13,12 +13,10 @@ Supported versions: Maya 2023 and later
 
 ## Launch
 
-Run this in the Python tab of the Script Editor. Change the path to wherever
-you put this repository.
+Add this repository's folder to Maya's `PYTHONPATH`, then run this in the
+Python tab of the Script Editor.
 
 ```python
-import sys
-sys.path.insert(0, r"D:\claude\maya-code-editor")
 import maya_code_editor
 maya_code_editor.show_ui()
 ```
