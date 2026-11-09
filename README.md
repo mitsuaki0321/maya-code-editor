@@ -1,5 +1,7 @@
 # Maya Code Editor
 
+[日本語](README_JP.md)
+
 A Python script editor for Maya built on Monaco Editor inside a QWebEngineView.
 Editing features come from Monaco as-is; the only custom code is the Maya
 integration plus a minimal file tree, tabs and session handling.
