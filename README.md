@@ -2,19 +2,19 @@
 
 [日本語](README_JP.md)
 
-A Python script editor for Maya built on Monaco Editor inside a QWebEngineView.
-Editing features come from Monaco as-is; the only custom code is the Maya
-integration plus a minimal file tree, tabs and session handling.
+An editor for writing and running Python scripts in Maya.
 
-Supported: Maya 2023 and later. Both PySide6 (2025+) and PySide2 (2023 / 2024)
-work; the differences are absorbed in `maya_code_editor/qt.py`.
-The bundled Monaco is 0.44.0, the newest release that runs on the QtWebEngine
-shipped with Maya 2023 / 2024 (Chromium 83 / 87); newer Monaco builds fail to
-load there.
+The editing area is Monaco Editor, the same engine as VS Code, so find and
+replace, multi-cursor, folding and the rest work with the key bindings you
+already know. Output appears in the terminal in the same format as the Script
+Editor.
+
+Supported versions: Maya 2023 and later
 
 ## Launch
 
-From the Script Editor (Python), a shelf button or your own tool menu:
+Run this in the Python tab of the Script Editor. Change the path to wherever
+you put this repository.
 
 ```python
 import sys
@@ -23,62 +23,64 @@ import maya_code_editor
 maya_code_editor.show_ui()
 ```
 
-Calling `show_ui()` again brings the existing panel to the front.
-Outside Maya, `python -m maya_code_editor` opens a standalone window (the
-terminal is a plain stdout view there).
+It is handy to put this on a shelf button or in your own tool menu.
 
 ## Usage
 
+### Run
+
+| Action | Key |
+|---|---|
+| Run | Ctrl+Enter, numpad Enter, or the Run button |
+
+Runs the selection if there is one, otherwise the whole file.
+
+### Files and tabs
+
 | Action | Key / location |
 |---|---|
-| Run (selection, or the whole buffer when nothing is selected) | Ctrl+Enter / numpad Enter / Run |
-| Hide / show the explorer | Drag the divider to the left edge (drag back to restore), double-click it, or Ctrl+B |
-| Save / New / Close tab | Ctrl+S / Ctrl+N / Ctrl+W |
-| Save All | Ctrl+K then S, or "Maya: Save All" in the command palette (F1) |
-| Toggle word wrap | Alt+Z (stored in settings.json) |
-| Completion | Type `.` or two or more characters of an identifier (see below) |
-| Files changed on disk | Clean tabs reload automatically; dirty tabs ask Reload / Keep Mine |
-| File operations | Right-click in the tree (New File / New Folder / Rename / Delete / Reveal in Explorer / Refresh) |
-| Multi-select | Ctrl+click / Shift+click |
-| Move | Drag with the middle mouse button onto a folder (drop on empty space for the root) |
-| Toggle terminal | Terminal button on the toolbar |
-| Echo All Commands / Show Stack Trace | Right-click menu of the terminal |
+| Save | Ctrl+S |
+| Save All | Ctrl+K then S |
+| New file | Ctrl+N |
+| Close tab | Ctrl+W |
+| Create, rename, delete and more | Right-click the tree on the left |
+| Multi-select | Ctrl+click, Shift+click |
+| Move files or folders | Drag with the middle mouse button onto the target folder |
 
-Editing (find / replace, multi-cursor, folding, line moves, ...) uses the same
-key bindings as VS Code.
+When a file is changed by another editor, tabs you have not edited reload
+automatically. Tabs with unsaved edits ask whether to reload or keep your
+version.
 
-### How completion works
+Open tabs and the contents of unsaved new files are restored the next time you
+start the editor.
 
-There is no static analysis (no jedi). The editor inspects live objects in
-the Maya session with `dir()`, the same idea as the Script Editor.
+### View
 
-- Anything reachable from `__main__`: `cmds.`, `om2.MFnMesh.`, variables you
-  have already executed, third-party modules you imported
-- `import` / `from ... import` lines in the buffer are resolved before the
-  code runs, so `import os` makes `os.` work immediately
-- Built-in types (`str.`) and, without a dot, builtins, keywords and names in
-  `__main__`
-- Nothing is suggested inside comments or strings. Expressions containing
-  `()` or `[]` are never evaluated (no side effects)
-- Results are cached per expression and dropped every time code is executed.
-  Nothing runs at startup or in the background
-- Accept with Tab or Enter (Monaco default). Put
-  `"acceptSuggestionOnEnter": "off"` in settings.json to make Enter always
-  insert a newline. Esc closes the list
-
-## File locations
-
-| Content | Path |
+| Action | Key / location |
 |---|---|
-| Workspace (root of the tree) | `~/Documents/maya/maya_code_editor_workspace` (override with `MAYA_CODE_EDITOR_WORKSPACE`) |
-| Settings | `~/Documents/maya/maya_code_editor/settings.json` (open with the Settings button; applied on next start) |
-| Session | `~/Documents/maya/maya_code_editor/session.json` (written automatically: open tabs and Untitled drafts) |
+| Hide / show the tree | Ctrl+B, double-click the divider, or drag the divider to the left edge |
+| Hide / show the terminal | Terminal button on the toolbar |
+| Toggle word wrap | Alt+Z |
+| Command palette | F1 |
+
+Right-click the terminal to toggle Echo All Commands and Show Stack Trace.
+
+### Completion
+
+Suggestions appear when you type `.` or two or more characters of a name.
+Tab accepts, Esc closes the list.
+
+- Members of Maya modules, such as `cmds.` and `om2.MFnMesh.`
+- Modules imported in the file, such as `import os` (works before the code is run)
+- Variables you have already created by running code
+- Python builtins and keywords
+
+Nothing is suggested inside comments or strings.
 
 ## Settings
 
-`settings.json` is created with every key the editor defines; keys added in
-later versions are filled in with their defaults on the next start, and
-anything you add is kept.
+The Settings button on the toolbar opens `settings.json`. Changes take effect
+the next time you start the editor.
 
 ```json
 {
@@ -87,68 +89,103 @@ anything you add is kept.
 }
 ```
 
-### Any Monaco option
+### Themes
 
-Every key in the `editor` section except `theme` is passed straight to
-Monaco as an editor option, so the full `IEditorOptions` surface is
-available (the names match VS Code's `editor.*` settings). Examples:
+Set `theme` to one of the following.
+
+| Value | Description |
+|---|---|
+| `dark-modern` | VS Code's Dark Modern (default) |
+| `light-modern` | VS Code's Light Modern |
+| `vs-dark` / `vs` | Monaco's standard dark / light |
+| `hc-black` / `hc-light` | High contrast |
+
+### Other editor settings
+
+The `editor` section accepts settings with the same names as VS Code's
+`editor.*`. The most common ones:
+
+| Setting | Example values | Description |
+|---|---|---|
+| `fontSize` | `13` | Text size |
+| `fontFamily` | `"Consolas"` | Font |
+| `tabSize` | `4` | Indent width |
+| `insertSpaces` | `true` | Insert spaces when pressing Tab |
+| `wordWrap` | `"off"` / `"on"` | Wrap long lines |
+| `minimap` | `true` / `false` | Overview on the right edge |
+| `lineNumbers` | `"on"` / `"off"` / `"relative"` | Line numbers |
+| `renderWhitespace` | `"none"` / `"boundary"` / `"all"` | Show whitespace characters |
+| `rulers` | `[88]` | Vertical lines at the given columns |
+| `cursorStyle` | `"line"` / `"block"` / `"underline"` | Cursor shape |
+| `cursorBlinking` | `"blink"` / `"smooth"` / `"solid"` | Cursor blinking |
+| `mouseWheelZoom` | `true` | Change the text size with Ctrl+wheel |
+| `scrollBeyondLastLine` | `false` | Allow scrolling past the last line |
+| `acceptSuggestionOnEnter` | `"on"` / `"off"` | With `"off"`, Enter always inserts a newline even when suggestions are shown |
+| `quickSuggestions` | `true` / `false` | Show suggestions automatically while typing |
+
+Example:
 
 ```json
 "editor": {
   "theme": "dark-modern",
-  "fontSize": 13,
+  "fontSize": 14,
   "lineNumbers": "relative",
-  "renderWhitespace": "boundary",
-  "cursorBlinking": "smooth",
-  "bracketPairColorization": { "enabled": true },
-  "quickSuggestions": { "other": true, "comments": false, "strings": false },
+  "rulers": [88],
   "acceptSuggestionOnEnter": "off"
 }
 ```
 
-`minimap` may also be written as a plain boolean. Values of the wrong type
-are reset to Monaco's defaults. Options the app sets itself
-(`insertSpaces`, `mouseWheelZoom`, `scrollBeyondLastLine`,
-`renderLineHighlight`) can be overridden the same way.
+Settings not listed here work too. The complete list is in the
+[Monaco Editor API reference](https://microsoft.github.io/monaco-editor/typedoc/interfaces/editor_editor_api.editor.IEditorOptions.html).
 
-### Themes
+## File locations
 
-`theme` is `dark-modern` (default) or `light-modern`, both converted from
-the themes bundled with VS Code, or one of Monaco's built-ins: `vs`,
-`vs-dark`, `hc-black`, `hc-light`. The toolbar, tree, tabs and dialogs follow
-the selected theme.
+| Content | Path |
+|---|---|
+| Workspace (the folder shown in the tree) | `~/Documents/maya/maya_code_editor_workspace` |
+| Settings | `~/Documents/maya/maya_code_editor/settings.json` |
+| Session (open tabs and so on) | `~/Documents/maya/maya_code_editor/session.json` |
 
-The converted themes live in `web/themes/*.js` and are generated by
-`dev/convert_vscode_theme.py` from VS Code's own JSON files. Monaco's Python
-tokenizer is coarser than VS Code's, so function names, variable names and
-control keywords are not colored separately.
+The workspace location can be changed with the `MAYA_CODE_EDITOR_WORKSPACE`
+environment variable.
 
-## Development
+## For developers
+
+### How it works
+
+- The UI is HTML inside a QWebEngineView and talks to Python through
+  QWebChannel. Only the terminal is a Qt widget, built on Maya's
+  `cmdScrollFieldReporter`
+- The differences between PySide6 (Maya 2025 and later) and PySide2 (Maya
+  2023 / 2024) are absorbed in `maya_code_editor/qt.py`
+- The bundled Monaco is 0.44.0, the newest release that runs on the
+  QtWebEngine in Maya 2023 / 2024; newer builds fail to load there
+- Completion is not static analysis: it inspects live objects in the Maya
+  session with `dir()`. Nothing runs at startup or in the background
+- Themes are converted from VS Code's theme files by
+  `dev/convert_vscode_theme.py`. Monaco's Python coloring is coarser than VS
+  Code's, so function and variable names are not colored separately
+
+### Tests
 
 ```
 python dev/maya_smoke.py              # launch Maya 2025 and run the automated checks (logs in dev/out/)
 python dev/maya_smoke.py --maya 2023  # another Maya version
 python dev/maya_smoke.py --standalone # same steps without Maya
+python -m maya_code_editor            # open a standalone window without Maya
 ```
 
-The checks use a temporary workspace and a temporary config folder, so your
-real files are never touched. Code is formatted and linted with
-`ruff format` / `ruff check`.
+The tests use a temporary workspace and a temporary config folder, so your
+real files are never touched. Code goes through `ruff format` and `ruff check`.
 
-## Layout
+### Layout
 
 ```
 maya_code_editor/
-├── main.py          QSplitter(WebView + terminal), show_ui(), session saving
-├── qt.py            PySide6 / PySide2 shim
-├── bridge/          Python API exposed to JS through QWebChannel
-│   ├── channel.py   slot definitions (thin wrappers)
-│   ├── files.py     file operations inside the workspace
-│   ├── execution.py execution through a hidden cmdScrollFieldExecuter
-│   ├── completion.py live-object completion
-│   ├── config.py    settings.json / session.json
-│   └── workspace.py workspace root resolution
-├── terminal/        cmdScrollFieldReporter (Maya) / QPlainTextEdit (standalone)
-├── integration/     workspaceControl docking
-└── web/             index.html, css, js (bridge / dialogs / completion / file_tree / tabs / app), themes, vendor/monaco
+├── main.py          main window, show_ui(), session saving
+├── qt.py            PySide6 / PySide2 switch
+├── bridge/          Python API exposed to JS (execution, files, completion, settings)
+├── terminal/        terminal pane
+├── integration/     docking into Maya
+└── web/             UI (HTML / CSS / JS), themes, Monaco
 ```
