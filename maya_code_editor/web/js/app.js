@@ -96,15 +96,36 @@
     return monaco.editor.create(document.getElementById("editor"), options);
   }
 
+  // Explorer pane: `width` is the last shown width, kept while the pane is collapsed.
+  const SIDEBAR_MIN = 120;
+  const SIDEBAR_COLLAPSE_AT = 60;
+  const sidebarState = { width: 220, visible: true };
+
+  function applySidebar() {
+    sidebar.hidden = !sidebarState.visible;
+    if (sidebarState.visible) sidebar.style.width = sidebarState.width + "px";
+  }
+
+  /**
+   * Drag the gutter to resize the explorer. Dragging left past
+   * SIDEBAR_COLLAPSE_AT hides it (like VS Code); dragging back right shows it.
+   */
   function setupGutter(onResized) {
     const gutter = document.getElementById("gutter");
     gutter.addEventListener("mousedown", function (e) {
       e.preventDefault();
       gutter.classList.add("dragging");
       const startX = e.clientX;
-      const startWidth = sidebar.getBoundingClientRect().width;
+      const startWidth = sidebarState.visible ? sidebar.getBoundingClientRect().width : 0;
       function onMove(ev) {
-        sidebar.style.width = Math.max(120, startWidth + ev.clientX - startX) + "px";
+        const width = startWidth + ev.clientX - startX;
+        if (width < SIDEBAR_COLLAPSE_AT) {
+          sidebarState.visible = false;
+        } else {
+          sidebarState.visible = true;
+          sidebarState.width = Math.round(Math.max(SIDEBAR_MIN, width));
+        }
+        applySidebar();
       }
       function onUp() {
         gutter.classList.remove("dragging");
@@ -114,6 +135,11 @@
       }
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
+    });
+    gutter.addEventListener("dblclick", function () {
+      sidebarState.visible = !sidebarState.visible;
+      applySidebar();
+      onResized();
     });
   }
 
@@ -191,7 +217,7 @@
 
     function sessionState() {
       const state = tabs.sessionState();
-      state.layout = { sidebarWidth: Math.round(sidebar.getBoundingClientRect().width) };
+      state.layout = { sidebarWidth: sidebarState.width, sidebarVisible: sidebarState.visible };
       return state;
     }
 
@@ -326,24 +352,50 @@
       { id: "mce.toggleTerminal", label: "Maya: Toggle Terminal", run: toggleTerminal },
       { id: "mce.saveAll", label: "Maya: Save All", keybindings: [K.chord(K.CtrlCmd | C.KeyK, C.KeyS)], run: saveAll },
       { id: "mce.toggleWordWrap", label: "Maya: Toggle Word Wrap", keybindings: [K.Alt | C.KeyZ], run: toggleWordWrap },
+      { id: "mce.toggleExplorer", label: "Maya: Toggle Explorer", keybindings: [K.CtrlCmd | C.KeyB], run: toggleExplorer },
     ];
     ACTIONS.forEach(function (a) { editor.addAction(a); });
 
+    function toggleExplorer() {
+      sidebarState.visible = !sidebarState.visible;
+      applySidebar();
+      scheduleSessionSave();
+    }
+
+    // Numpad Enter runs the code, as in Maya's Script Editor. Monaco key codes
+    // cannot tell it from the main Enter key, so check the physical key.
+    function isNumpadEnter(ev) {
+      // `code` needs a native scan code; `location` (3 = numpad) also covers synthesized events.
+      return ev.code === "NumpadEnter" || (ev.key === "Enter" && ev.location === 3);
+    }
+
+    editor.onKeyDown(function (e) {
+      if (isNumpadEnter(e.browserEvent)) {
+        e.preventDefault();
+        e.stopPropagation();
+        runActive();
+      }
+    });
+
     // Same shortcuts when focus is outside the editor (explorer, tab bar).
     document.addEventListener("keydown", function (e) {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       if (e.target.closest("#editor") || e.target.closest("#dialog")) return;
+      if (isNumpadEnter(e)) { e.preventDefault(); runActive(); return; }
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key === "s") { e.preventDefault(); saveActive(); }
       else if (key === "n") { e.preventDefault(); tabs.newUntitled(); }
       else if (key === "w") { e.preventDefault(); tabs.close(); }
+      else if (key === "b") { e.preventDefault(); toggleExplorer(); }
       else if (key === "enter") { e.preventDefault(); runActive(); }
     });
 
     // -- restore -------------------------------------------------------
 
     const layout = (session && session.layout) || {};
-    if (layout.sidebarWidth > 0) sidebar.style.width = Math.max(120, layout.sidebarWidth) + "px";
+    if (layout.sidebarWidth > 0) sidebarState.width = Math.max(SIDEBAR_MIN, layout.sidebarWidth);
+    sidebarState.visible = layout.sidebarVisible !== false;
+    applySidebar();
     setTerminalButton(layout.terminalVisible !== false);
     setupGutter(scheduleSessionSave);
     const restored = await tabs.restoreSession(session);
@@ -354,6 +406,7 @@
       bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, settings: settings,
       runActive: runActive, saveActive: saveActive, saveAll: saveAll, toggleWordWrap: toggleWordWrap, toggleTerminal: toggleTerminal,
       checkExternalChanges: checkExternalChanges, saveSessionNow: saveSessionNow, restoredTabs: restored, completion: Completion,
+      toggleExplorer: toggleExplorer, sidebarState: sidebarState,
     };
     bridge.log("monaco ready (restored " + restored + " tabs)");
   }

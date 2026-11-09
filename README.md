@@ -29,7 +29,8 @@ terminal is a plain stdout view there).
 
 | Action | Key / location |
 |---|---|
-| Run (selection, or the whole buffer when nothing is selected) | Ctrl+Enter / Run |
+| Run (selection, or the whole buffer when nothing is selected) | Ctrl+Enter / numpad Enter / Run |
+| Hide / show the explorer | Drag the divider to the left edge (drag back to restore), double-click it, or Ctrl+B |
 | Save / New / Close tab | Ctrl+S / Ctrl+N / Ctrl+W |
 | Save All | Ctrl+K then S, or "Maya: Save All" in the command palette (F1) |
 | Toggle word wrap | Alt+Z (stored in settings.json) |

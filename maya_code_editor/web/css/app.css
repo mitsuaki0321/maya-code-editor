@@ -134,6 +134,8 @@ button {
   flex: 0 0 auto;
 }
 
+#sidebar[hidden] { display: none; }
+
 #sidebar-header {
   display: flex;
   align-items: center;

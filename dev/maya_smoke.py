@@ -101,15 +101,28 @@ def _check_session_file() -> str:
 _WINDOW: dict = {"ref": None}
 
 
-def _press_key(name: str) -> str:
+def _press_key(name: str, keypad: bool = False) -> str:
     """Send a real key press to the web view (keybindings see it, unlike editor.trigger)."""
     from maya_code_editor.qt import Qt
 
     QTest = importlib.import_module(BINDING + ".QtTest").QTest
     window = _WINDOW["ref"]
     proxy = window.web_view.focusProxy() or window.web_view
-    QTest.keyClick(proxy, getattr(Qt.Key, "Key_" + name))
-    return f"sent {name}"
+    modifier = (
+        Qt.KeyboardModifier.KeypadModifier if keypad else Qt.KeyboardModifier.NoModifier
+    )
+    QTest.keyClick(proxy, getattr(Qt.Key, "Key_" + name), modifier)
+    return f"sent {name}{' (keypad)' if keypad else ''}"
+
+
+def _terminal_text() -> str:
+    """Return everything the terminal pane currently shows."""
+    terminal = _WINDOW["ref"].terminal
+    if hasattr(terminal, "toPlainText"):
+        return terminal.toPlainText()
+    import maya.cmds as cmds  # type: ignore
+
+    return str(cmds.cmdScrollFieldReporter(terminal.reporter, query=True, text=True))
 
 
 STEPS: list[Step] = [
@@ -351,6 +364,32 @@ STEPS: list[Step] = [
         " const w = document.querySelector('.suggest-widget'); const rows = w ? w.querySelectorAll('.monaco-list-row').length : -1;"
         " const first = w ? (w.querySelector('.monaco-list-row .label-name') || {}).textContent : null; app.editor.trigger('smoke', 'hideSuggestWidget', {});"
         " return {visible: !!w && w.getBoundingClientRect().height > 0, rows: rows, first: first}; })()",
+        None,
+    ),
+    (
+        "numpad-enter-prepare",
+        "(() => { const m = app.editor.getModel(); m.setValue('print(\"numpad \" + str(6 * 7))'); app.editor.setPosition({lineNumber: 1, column: 5}); app.editor.focus();"
+        " window.__keys = []; if (!window.__keyLog) { window.__keyLog = true; document.addEventListener('keydown', e => window.__keys.push({key: e.key, code: e.code, location: e.location}), true); }"
+        " return 'ready'; })()",
+        lambda: _press_key("Enter", keypad=True),
+    ),
+    (
+        "numpad-enter-result",
+        "(async () => { await new Promise(r => setTimeout(r, 600)); const m = app.editor.getModel(); return {value: m.getValue(), lines: m.getLineCount(), keys: window.__keys}; })()",
+        lambda: "terminal shows 'numpad 42': %s" % ("numpad 42" in _terminal_text()),
+    ),
+    (
+        "sidebar-collapse",
+        "(async () => { const g = document.getElementById('gutter'), s = document.getElementById('sidebar'); const y = g.getBoundingClientRect().top + 50;"
+        " const ev = (type, el, x) => el.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0}));"
+        " const x0 = g.getBoundingClientRect().left + 2; const out = {startWidth: Math.round(s.getBoundingClientRect().width)};"
+        " ev('mousedown', g, x0); ev('mousemove', document, 100); out.at100 = {hidden: s.hidden, width: Math.round(s.getBoundingClientRect().width)};"
+        " ev('mousemove', document, 20); out.at20 = {hidden: s.hidden}; ev('mouseup', document, 20);"
+        " const x1 = g.getBoundingClientRect().left + 2; out.gutterLeftWhenHidden = Math.round(x1);"
+        " ev('mousedown', g, x1); ev('mousemove', document, x1 + 40); out.dragBack40 = {hidden: s.hidden};"
+        " ev('mousemove', document, x1 + 260); out.dragBack260 = {hidden: s.hidden, width: Math.round(s.getBoundingClientRect().width)}; ev('mouseup', document, x1 + 260);"
+        " app.toggleExplorer(); out.afterToggle = {hidden: s.hidden}; app.toggleExplorer(); out.afterToggle2 = {hidden: s.hidden, width: Math.round(s.getBoundingClientRect().width)};"
+        " s.style.width = ''; app.sidebarState.width = 220; s.style.width = '220px'; return out; })()",
         None,
     ),
     (
