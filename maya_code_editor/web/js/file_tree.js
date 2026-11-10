@@ -158,6 +158,20 @@ class FileTree {
     label.textContent = entry.name;
     node.append(arrow, icon, label);
 
+    if (!entry.is_dir && this.handlers.onRun) {
+      // Hover button: run the whole file without opening it.
+      const run = document.createElement("button");
+      run.className = "tree-run";
+      run.title = "Run file";
+      run.setAttribute("aria-label", "Run " + entry.name);
+      run.innerHTML = '<svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>';
+      run.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.handlers.onRun(entry.path);
+      });
+      node.appendChild(run);
+    }
+
     node.addEventListener("click", (e) => this._onNodeClick(e, entry));
     return node;
   }

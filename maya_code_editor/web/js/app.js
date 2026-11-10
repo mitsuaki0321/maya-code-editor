@@ -258,6 +258,7 @@
       },
       onRenamed: function (oldPath, newPath, isDir) { tabs.onPathRenamed(oldPath, newPath, isDir); },
       onDeleted: function (path, isDir) { tabs.onPathDeleted(path, isDir); },
+      onRun: function (path) { runFile(path); },
     });
     await tree.load(workspace.root);
 
@@ -272,6 +273,23 @@
       const ok = await bridge.runCode(code);
       Completion.invalidate(); // the live namespace may have changed
       if (!ok) setStatus("execution failed (see terminal)");
+    }
+
+    /** Run a file from the explorer without opening it (an open tab's unsaved text is used instead). */
+    async function runFile(path) {
+      const name = path.slice(path.lastIndexOf("/") + 1);
+      let code;
+      try {
+        const open = tabs.findByPath(path);
+        code = open ? open.model.getValue() : await bridge.files.read(path);
+      } catch (err) {
+        Dialogs.error(err.message);
+        return false;
+      }
+      const ok = await bridge.runCode(code);
+      Completion.invalidate();
+      setStatus(ok ? "ran " + name : "execution failed (see terminal)");
+      return ok;
     }
 
     async function saveActive() {
@@ -406,7 +424,7 @@
       bridge: bridge, monaco: monaco, editor: editor, tabs: tabs, tree: tree, workspace: workspace, settings: settings,
       runActive: runActive, saveActive: saveActive, saveAll: saveAll, toggleWordWrap: toggleWordWrap, toggleTerminal: toggleTerminal,
       checkExternalChanges: checkExternalChanges, saveSessionNow: saveSessionNow, restoredTabs: restored, completion: Completion,
-      toggleExplorer: toggleExplorer, sidebarState: sidebarState,
+      toggleExplorer: toggleExplorer, sidebarState: sidebarState, runFile: runFile,
     };
     bridge.log("monaco ready (restored " + restored + " tabs)");
   }

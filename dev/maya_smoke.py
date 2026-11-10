@@ -367,6 +367,15 @@ STEPS: list[Step] = [
         None,
     ),
     (
+        "tree-run-button",
+        "(async () => { const r = app.workspace.root; await app.bridge.files.write(r + '/runme.py', 'print(\"tree \" + str(7 * 6))\\n'); await app.tree.refresh();"
+        " const node = app.tree._nodeFor(r + '/runme.py'); const btn = node.querySelector('.tree-run'); const hiddenByDefault = getComputedStyle(btn).display === 'none';"
+        " btn.click(); await new Promise(res => setTimeout(res, 600));"
+        " const opened = !!app.tabs.findByPath(r + '/runme.py'); await app.bridge.files.remove(r + '/runme.py'); await app.tree.refresh();"
+        " return {hiddenByDefault: hiddenByDefault, openedTab: opened, status: document.getElementById('status').textContent}; })()",
+        lambda: "terminal shows 'tree 42': %s" % ("tree 42" in _terminal_text()),
+    ),
+    (
         "crlf-roundtrip",
         "(async () => { const r = app.workspace.root; app.tabs.newUntitled(); const m = app.editor.getModel();"
         " app.editor.setValue('a = 1'); app.editor.setPosition({lineNumber: 1, column: 6});"

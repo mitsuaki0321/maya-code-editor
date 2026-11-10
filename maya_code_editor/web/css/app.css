@@ -232,6 +232,23 @@ button {
   text-overflow: ellipsis;
 }
 
+.tree-run {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  border: none;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.tree-node:hover .tree-run { display: flex; }
+.tree-run:hover { background: var(--accent); color: #fff; }
+
 .tree-children { display: none; }
 .tree-node.expanded + .tree-children { display: block; }
 

@@ -30,6 +30,7 @@ It is handy to put this on a shelf button or in your own tool menu.
 | Action | Key |
 |---|---|
 | Run | Ctrl+Enter, numpad Enter, or the Run button |
+| Run a file without opening it | Hover a file in the tree and click the ▶ at its right edge |
 
 Runs the selection if there is one, otherwise the whole file.
 
