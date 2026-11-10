@@ -247,7 +247,7 @@ button {
   flex: 0 0 auto;
 }
 .tree-node:hover .tree-run { display: flex; }
-.tree-run:hover { background: var(--accent); color: #fff; }
+.tree-run:hover { color: var(--accent-hover); transform: scale(1.15); }
 
 .tree-children { display: none; }
 .tree-node.expanded + .tree-children { display: block; }

@@ -164,7 +164,10 @@ class FileTree {
       run.className = "tree-run";
       run.title = "Run file";
       run.setAttribute("aria-label", "Run " + entry.name);
-      run.innerHTML = '<svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>';
+      run.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">' +
+        '<circle cx="8" cy="8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.2"/>' +
+        '<path d="M6.3 5v6l5-3z" fill="currentColor"/></svg>';
       run.addEventListener("click", (e) => {
         e.stopPropagation();
         this.handlers.onRun(entry.path);
