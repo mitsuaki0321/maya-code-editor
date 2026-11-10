@@ -367,6 +367,24 @@ STEPS: list[Step] = [
         None,
     ),
     (
+        "crlf-roundtrip",
+        "(async () => { const r = app.workspace.root; app.tabs.newUntitled(); const m = app.editor.getModel();"
+        " app.editor.setValue('a = 1'); app.editor.setPosition({lineNumber: 1, column: 6});"
+        " app.editor.trigger('smoke', 'type', {text: '\\nb = 2\\nc = 3\\n'}); const eol = JSON.stringify(m.getEOL());"
+        " await app.tabs.save(null, 'crlf.py'); await app.tabs.close(app.tabs.findByPath(r + '/crlf.py'), true);"
+        " const t = await app.tabs.openFile(r + '/crlf.py'); const lines = t.model.getLineCount(); const text = t.model.getValue();"
+        " await app.tabs.close(t, true); return {eolOfNewTab: eol, linesAfterReopen: lines, blankLines: text.split(/\\r?\\n/).filter(l => l === '').length - 1}; })()",
+        lambda: (
+            "crlf.py bytes: CRLF=%d, CRCRLF=%d, LF-only=%d"
+            % (
+                (WORKSPACE / "crlf.py").read_bytes().count(b"\r\n"),
+                (WORKSPACE / "crlf.py").read_bytes().count(b"\r\r\n"),
+                (WORKSPACE / "crlf.py").read_bytes().count(b"\n")
+                - (WORKSPACE / "crlf.py").read_bytes().count(b"\r\n"),
+            )
+        ),
+    ),
+    (
         "numpad-enter-prepare",
         "(() => { const m = app.editor.getModel(); m.setValue('print(\"numpad \" + str(6 * 7))'); app.editor.setPosition({lineNumber: 1, column: 5}); app.editor.focus();"
         " window.__keys = []; if (!window.__keyLog) { window.__keyLog = true; document.addEventListener('keydown', e => window.__keys.push({key: e.key, code: e.code, location: e.location}), true); }"

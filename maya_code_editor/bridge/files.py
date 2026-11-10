@@ -93,7 +93,12 @@ def read_text(root: Path, raw_path: str) -> FileResult:
     if path is None or not path.is_file():
         return _fail(f"Not a file inside the workspace: {raw_path}")
     try:
-        return FileResult(ok=True, data=path.read_text(encoding="utf-8"))
+        # newline="" keeps the file's own line endings; Monaco detects CRLF / LF
+        # from the text and writes them back unchanged (see write_text).
+        with path.open("r", encoding="utf-8", newline="") as f:
+            content = f.read()
+        # Repair files written by earlier versions, which doubled "\r" on Windows.
+        return FileResult(ok=True, data=content.replace("\r\r\n", "\r\n"))
     except (OSError, UnicodeDecodeError) as exc:
         return _fail(f"Cannot read {path}: {exc}")
 
@@ -121,7 +126,10 @@ def write_text(root: Path, raw_path: str, content: str) -> FileResult:
         return _fail(f"Path is outside the workspace: {raw_path}")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        # newline="" writes the editor's line endings as-is. Text mode would turn
+        # Monaco's "\r\n" into "\r\r\n" on Windows, which reads back as blank lines.
+        with path.open("w", encoding="utf-8", newline="") as f:
+            f.write(content)
     except OSError as exc:
         return _fail(f"Cannot write {path}: {exc}")
     return FileResult(ok=True, data=path.as_posix())
