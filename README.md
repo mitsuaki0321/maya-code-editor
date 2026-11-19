@@ -23,6 +23,9 @@ maya_code_editor.show_ui()
 
 It is handy to put this on a shelf button or in your own tool menu.
 
+The editor opens as a floating window. To dock it into Maya's layout, drag the
+window by hand; the docked position is kept until Maya is restarted.
+
 ## Usage
 
 ### Run
