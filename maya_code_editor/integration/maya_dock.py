@@ -47,40 +47,21 @@ class MayaDock:
                 self.widget.setParent(None)
             cmds.deleteUI(self.CONTROL_NAME)
 
-        with contextlib.suppress(Exception):
-            cmds.workspaceControlState(self.CONTROL_NAME, remove=True)
-
+        # Floating on first use. The control's saved workspace state is kept, so
+        # once the user docks it by hand Maya reopens it in that place.
         self.workspace_control = cmds.workspaceControl(
             self.CONTROL_NAME,
             label=self.WINDOW_TITLE,
-            dockToControl=["ChannelBoxLayerEditor", "left"],
+            floating=True,
             initialWidth=900,
             initialHeight=600,
-            minimumWidth=600,
+            minimumWidth=400,
             widthProperty="free",
             heightProperty="free",
-            retain=False,
-            floating=False,
+            retain=True,
             loadImmediately=True,
             visible=True,
         )
-
-        if cmds.workspaceControl(self.workspace_control, query=True, floating=True):
-            cmds.deleteUI(self.workspace_control)
-            self.workspace_control = cmds.workspaceControl(
-                self.CONTROL_NAME,
-                label=self.WINDOW_TITLE,
-                dockToMainWindow=("right", 1),
-                initialWidth=900,
-                initialHeight=600,
-                minimumWidth=600,
-                widthProperty="free",
-                heightProperty="free",
-                retain=False,
-                floating=False,
-                loadImmediately=True,
-                visible=True,
-            )
 
         self._parent_widget_into_control()
 
@@ -110,19 +91,11 @@ class MayaDock:
         host.show()
 
     def show(self) -> None:
-        """Show the control, recreating it if it was closed or is floating."""
+        """Show the control where it is (floating or docked), recreating it if closed."""
         if not MAYA_AVAILABLE:
             return
 
         if not cmds.workspaceControl(self.CONTROL_NAME, exists=True):
-            self.create_docked_widget()
-            return
-
-        if cmds.workspaceControl(self.CONTROL_NAME, query=True, floating=True):
-            if self.widget.parent() is not None:
-                self.widget.setParent(None)
-            cmds.deleteUI(self.CONTROL_NAME)
-            self.workspace_control = None
             self.create_docked_widget()
             return
 
@@ -136,6 +109,14 @@ class MayaDock:
         """Hide the control without deleting it."""
         if MAYA_AVAILABLE and cmds.workspaceControl(self.CONTROL_NAME, exists=True):
             cmds.workspaceControl(self.CONTROL_NAME, edit=True, visible=False)
+
+    def is_floating(self) -> bool:
+        """Return True if the control is a floating window (False when docked or absent)."""
+        if not MAYA_AVAILABLE or not cmds.workspaceControl(
+            self.CONTROL_NAME, exists=True
+        ):
+            return False
+        return bool(cmds.workspaceControl(self.CONTROL_NAME, query=True, floating=True))
 
     def close(self) -> None:
         """Delete the control."""
