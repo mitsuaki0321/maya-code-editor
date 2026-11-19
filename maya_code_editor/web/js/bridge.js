@@ -28,6 +28,7 @@ const MayaBridge = (function () {
       runCode: function (code) { return call(raw, "run_code", code); },
       complete: function (expression, source) { return call(raw, "complete", expression, source).then(JSON.parse); },
       toggleTerminal: function () { return call(raw, "toggle_terminal"); },
+      clearTerminal: function () { raw.clear_terminal(); },
       getSettings: function () { return call(raw, "get_settings").then(JSON.parse); },
       getSession: function () { return call(raw, "get_session").then(JSON.parse); },
       saveSession: function (state) { raw.save_session(JSON.stringify(state)); },

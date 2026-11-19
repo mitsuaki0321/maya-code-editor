@@ -62,6 +62,7 @@ start the editor.
 |---|---|
 | Hide / show the tree | Ctrl+B, double-click the divider, or drag the divider to the left edge |
 | Hide / show the terminal | Terminal button on the toolbar |
+| Clear the terminal | Trash button on the toolbar, or right-click the terminal → Clear History |
 | Toggle word wrap | Alt+Z |
 | Command palette | F1 |
 

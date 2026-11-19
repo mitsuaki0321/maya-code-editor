@@ -35,6 +35,7 @@ class EditorBridge(QObject):
         self._executor = executor
         self._root = workspace_root
         self._terminal_toggle: Optional[Callable[[], bool]] = None
+        self._terminal_clear: Optional[Callable[[], None]] = None
         self._session_get: Optional[Callable[[], dict]] = None
         self._session_put: Optional[Callable[[dict], None]] = None
 
@@ -112,7 +113,17 @@ class EditorBridge(QObject):
         """Open ``settings.json`` with the OS default application."""
         return files.open_with_default_app(config.settings_path()).to_json()
 
+    def set_terminal_clear(self, clear: Callable[[], None]) -> None:
+        """Register the Qt-side callback that clears the terminal."""
+        self._terminal_clear = clear
+
     # -- terminal --------------------------------------------------------
+
+    @Slot()
+    def clear_terminal(self) -> None:
+        """Clear the terminal output."""
+        if self._terminal_clear is not None:
+            self._terminal_clear()
 
     @Slot(result=bool)
     def toggle_terminal(self) -> bool:

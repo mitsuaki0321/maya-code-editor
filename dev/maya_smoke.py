@@ -367,6 +367,12 @@ STEPS: list[Step] = [
         None,
     ),
     (
+        "clear-terminal-button",
+        "(async () => { await app.bridge.runCode('print(\"before clear 9 * 9 = \" + str(9 * 9))'); await new Promise(r => setTimeout(r, 300));"
+        " document.getElementById('clear-terminal-button').click(); await new Promise(r => setTimeout(r, 300)); return 'clicked'; })()",
+        lambda: "terminal text after clear: %r" % _terminal_text().strip()[-60:],
+    ),
+    (
         "tree-run-button",
         "(async () => { const r = app.workspace.root; await app.bridge.files.write(r + '/runme.py', 'print(\"tree \" + str(7 * 6))\\n'); await app.tree.refresh();"
         " const node = app.tree._nodeFor(r + '/runme.py'); const btn = node.querySelector('.tree-run'); const hiddenByDefault = getComputedStyle(btn).display === 'none';"

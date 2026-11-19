@@ -357,6 +357,7 @@
     document.getElementById("save-all-button").addEventListener("click", saveAll);
     document.getElementById("new-button").addEventListener("click", function () { tabs.newUntitled(); });
     document.getElementById("terminal-button").addEventListener("click", toggleTerminal);
+    document.getElementById("clear-terminal-button").addEventListener("click", function () { bridge.clearTerminal(); });
     document.getElementById("settings-button").addEventListener("click", openSettings);
     document.getElementById("refresh-button").addEventListener("click", function () { tree.refresh(); });
 

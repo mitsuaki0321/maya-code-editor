@@ -62,6 +62,7 @@ class MayaCodeEditorWindow(QWidget):
         self.channel = QWebChannel(self.web_view.page())
         self.bridge = EditorBridge(self.executor, self.workspace_root, self)
         self.bridge.set_terminal_toggle(self.toggle_terminal)
+        self.bridge.set_terminal_clear(self.terminal.clear)
         self.bridge.set_session_hooks(self.session_state, self.on_web_session)
         self.channel.registerObject("bridge", self.bridge)
         self.web_view.page().setWebChannel(self.channel)
