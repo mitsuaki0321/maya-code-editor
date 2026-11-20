@@ -308,6 +308,23 @@ class FileTree {
     return !!node && node.dataset.isDir === "1";
   }
 
+  /**
+   * Folder implied by the selection: the selected folder itself, the
+   * parent of a selected file, or the root when nothing is selected.
+   */
+  selectedDir() {
+    const last = this.selection[this.selection.length - 1];
+    if (!last) return this.root;
+    return this._isDirPath(last) ? last : this._parentOf(last);
+  }
+
+  /** Expand the folder containing `path`, redraw and select `path`. */
+  async showPath(path) {
+    this.expanded.add(this._parentOf(path));
+    await this.refresh();
+    this.select(path);
+  }
+
   // -- context menu ----------------------------------------------------
 
   _onContextMenu(event) {

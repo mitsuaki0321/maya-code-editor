@@ -400,6 +400,13 @@ STEPS: list[Step] = [
         ),
     ),
     (
+        "save-into-selected-dir",
+        "(async () => { const r = app.workspace.root; app.tree.select(r + '/sub/hello.py'); app.tabs.newUntitled();"
+        " app.editor.setValue('x = 1'); await app.tabs.save(null, 'in_sub.py'); const t = app.tabs.active;"
+        " const sel = app.tree.selection.slice(); await app.tabs.close(t, true); return {path: t.path.replace(r, ''), selection: sel.map(p => p.replace(r, ''))}; })()",
+        lambda: "in_sub.py exists=%s" % (WORKSPACE / "sub" / "in_sub.py").exists(),
+    ),
+    (
         "numpad-enter-prepare",
         "(() => { const m = app.editor.getModel(); m.setValue('print(\"numpad \" + str(6 * 7))'); app.editor.setPosition({lineNumber: 1, column: 5}); app.editor.focus();"
         " window.__keys = []; if (!window.__keyLog) { window.__keyLog = true; document.addEventListener('keydown', e => window.__keys.push({key: e.key, code: e.code, location: e.location}), true); }"

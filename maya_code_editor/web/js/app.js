@@ -249,6 +249,7 @@
       onContentChange: function (tab) {
         if (!tab.path) scheduleSessionSave(); // Untitled drafts are persisted as text
       },
+      saveDir: function () { return tree.selectedDir(); },
     });
     tabs.workspaceRoot = workspace.root;
 
@@ -293,7 +294,7 @@
     }
 
     async function saveActive() {
-      if (await tabs.save()) await tree.refresh();
+      if (await tabs.save()) await tree.showPath(tabs.active.path);
     }
 
     function setTerminalButton(visible) {

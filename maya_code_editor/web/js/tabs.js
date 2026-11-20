@@ -160,18 +160,20 @@ class Tabs {
 
   /**
    * Save `tab` (default: active). Untitled tabs prompt for a name unless
-   * `nameOverride` is given; the file is created under the workspace root.
+   * `nameOverride` is given; the file is created in `handlers.saveDir()`
+   * (the workspace root when the handler is absent).
    * @returns {Promise<boolean>} true if saved
    */
   async save(tab, nameOverride) {
     tab = tab || this.active;
     if (!tab) return false;
     if (!tab.path) {
-      const name = nameOverride || (await Dialogs.prompt("Save as (in " + this._nameOf(this.workspaceRoot) + ")", "untitled.py", "stem"));
+      const dir = (this.handlers.saveDir && this.handlers.saveDir()) || this.workspaceRoot;
+      const name = nameOverride || (await Dialogs.prompt("Save as (in " + this._nameOf(dir) + ")", "untitled.py", "stem"));
       if (!name) return false;
-      const path = this.workspaceRoot + "/" + name;
+      const path = dir + "/" + name;
       try {
-        await this.files.createFile(this.workspaceRoot, name);
+        await this.files.createFile(dir, name);
       } catch (err) {
         await Dialogs.error(err.message);
         return false;

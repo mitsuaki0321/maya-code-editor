@@ -41,7 +41,7 @@ Runs the selection if there is one, otherwise the whole file.
 
 | Action | Key / location |
 |---|---|
-| Save | Ctrl+S |
+| Save | Ctrl+S. A new file is saved into the folder selected in the tree (or the folder of the selected file) |
 | Save All | Ctrl+K then S |
 | New file | Ctrl+N |
 | Close tab | Ctrl+W |
