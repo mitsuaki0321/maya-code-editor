@@ -10,13 +10,16 @@ from __future__ import annotations
 import sys
 from typing import Callable, Optional, TextIO
 
+from ..bridge import config
 from ..qt import (
+    QAction,
     QColor,
     QFontDatabase,
     QPlainTextEdit,
     QTextCharFormat,
     QTextCursor,
     QWidget,
+    exec_,
 )
 
 MAX_BLOCKS = 2000
@@ -45,11 +48,22 @@ class _TeeStream:
 
 
 class FallbackTerminal(QPlainTextEdit):
-    """Read-only output pane used when Maya's reporter is unavailable."""
+    """Read-only output pane used when Maya's reporter is unavailable.
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    Args:
+        parent: Parent widget.
+        wrap_lines: Initial state of the Wrap Lines toggle.
+    """
+
+    def __init__(
+        self, parent: Optional[QWidget] = None, wrap_lines: bool = False
+    ) -> None:
         super().__init__(parent)
         self.setReadOnly(True)
+        self.wrap_action = QAction("Wrap Lines", self, checkable=True)
+        self.wrap_action.setChecked(wrap_lines)
+        self.wrap_action.toggled.connect(self.set_wrap_lines)
+        self.set_wrap_lines(wrap_lines, remember=False)
         self.setMaximumBlockCount(MAX_BLOCKS)
         self.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self.setStyleSheet(
@@ -63,6 +77,25 @@ class FallbackTerminal(QPlainTextEdit):
         self._orig_stdout: Optional[TextIO] = None
         self._orig_stderr: Optional[TextIO] = None
         self._attach()
+
+    def set_wrap_lines(self, enabled: bool, remember: bool = True) -> None:
+        """Wrap long lines at the right edge and (optionally) save the choice."""
+        mode = (
+            QPlainTextEdit.LineWrapMode.WidgetWidth
+            if enabled
+            else QPlainTextEdit.LineWrapMode.NoWrap
+        )
+        self.setLineWrapMode(mode)
+        if remember:
+            config.update_setting("terminal", "wrapLines", enabled)
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        """Standard menu plus the Wrap Lines toggle."""
+        menu = self.createStandardContextMenu()
+        menu.addSeparator()
+        menu.addAction(self.wrap_action)
+        exec_(menu, event.globalPos())
+        menu.deleteLater()
 
     def _attach(self) -> None:
         """Replace ``sys.stdout`` / ``sys.stderr`` with tee streams."""

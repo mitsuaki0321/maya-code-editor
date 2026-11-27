@@ -49,11 +49,14 @@ def create_terminal(
             parent,
             echo_all_commands=bool(terminal_settings.get("echoAllCommands", False)),
             show_stack_trace=bool(terminal_settings.get("showStackTrace", True)),
+            wrap_lines=bool(terminal_settings.get("wrapLines", False)),
         )
 
     from .fallback_terminal import FallbackTerminal
 
-    return FallbackTerminal(parent)
+    return FallbackTerminal(
+        parent, wrap_lines=bool((settings or {}).get("wrapLines", False))
+    )
 
 
 __all__ = ["Terminal", "create_terminal"]

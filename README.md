@@ -32,7 +32,7 @@ window by hand; the docked position is kept until Maya is restarted.
 
 | Action | Key |
 |---|---|
-| Run | Ctrl+Enter, numpad Enter, or the Run button |
+| Run | Ctrl+Enter, numpad Enter, the Run button, or right-click → Run Selection or File |
 | Run a file without opening it | Hover a file in the tree and click the ▶ at its right edge |
 
 Runs the selection if there is one, otherwise the whole file.
@@ -63,6 +63,7 @@ start the editor.
 | Hide / show the tree | Ctrl+B, double-click the divider, or drag the divider to the left edge |
 | Hide / show the terminal | Terminal button on the toolbar |
 | Clear the terminal | Trash button on the toolbar, or right-click the terminal → Clear History |
+| Wrap long lines in the terminal | Right-click the terminal → Wrap Lines |
 | Toggle word wrap | Alt+Z |
 | Command palette | F1 |
 
@@ -88,7 +89,7 @@ the next time you start the editor.
 ```json
 {
   "editor": { "theme": "dark-modern", "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": true },
-  "terminal": { "echoAllCommands": false, "showStackTrace": true }
+  "terminal": { "echoAllCommands": false, "showStackTrace": true, "wrapLines": false }
 }
 ```
 

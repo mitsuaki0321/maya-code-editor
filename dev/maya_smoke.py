@@ -400,6 +400,16 @@ STEPS: list[Step] = [
         ),
     ),
     (
+        "context-menu-run",
+        "(async () => { app.editor.focus(); app.editor.trigger('smoke', 'editor.action.showContextMenu');"
+        " await new Promise(r => setTimeout(r, 300));"
+        " const roots = [document].concat(Array.from(document.querySelectorAll('.shadow-root-host')).map(h => h.shadowRoot).filter(Boolean));"
+        " const labels = roots.flatMap(r => Array.from(r.querySelectorAll('.monaco-menu .action-label')).map(e => e.textContent));"
+        " app.editor.focus(); app.editor.trigger('smoke', 'hideContextMenu');"
+        " return {first: labels[0], hasRun: labels.includes('Maya: Run Selection or File'), count: labels.length}; })()",
+        None,
+    ),
+    (
         "save-into-selected-dir",
         "(async () => { const r = app.workspace.root; app.tree.select(r + '/sub/hello.py'); app.tabs.newUntitled();"
         " app.editor.setValue('x = 1'); await app.tabs.save(null, 'in_sub.py'); const t = app.tabs.active;"
@@ -670,6 +680,7 @@ def _make_run_js(page, legacy_signature: bool) -> Callable:
 def run_inside_maya() -> None:
     """Drive the editor inside Maya and write log / screenshot."""
     import maya.cmds as cmds  # type: ignore
+    import maya.OpenMayaUI as omui  # type: ignore
     from maya_code_editor.qt import QTimer
     from maya_code_editor.qt import QGuiApplication
 
@@ -720,6 +731,24 @@ def run_inside_maya() -> None:
             )
             _log(
                 f"history menu: echo default={before} after toggle={after}; stackTrace default={trace}"
+            )
+            widget = terminal.reporter_qwidget()
+            from maya_code_editor.qt import QPlainTextEdit, wrapInstance
+
+            cls = widget.metaObject().className()
+            te = wrapInstance(
+                int(omui.MQtUtil.findControl(terminal.reporter)), QPlainTextEdit
+            )
+            terminal.wrap_action.setChecked(True)
+            wrapped = json.loads(
+                (CONFIG_DIR / "settings.json").read_text(encoding="utf-8")
+            )["terminal"].get("wrapLines")
+            mode_on = str(te.lineWrapMode())
+            terminal.wrap_action.setChecked(False)
+            mode_off = str(te.lineWrapMode())
+            _log(
+                f"wrap lines: class={cls} inherits QPlainTextEdit={widget.inherits('QPlainTextEdit')}"
+                f" saved={wrapped} mode on={mode_on} off={mode_off}"
             )
         except Exception:
             _log("history menu FAILED\n" + traceback.format_exc())

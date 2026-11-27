@@ -30,7 +30,7 @@ maya_code_editor.show_ui()
 
 | 操作 | キー |
 |---|---|
-| 実行 | Ctrl+Enter、テンキーの Enter、または Run ボタン |
+| 実行 | Ctrl+Enter、テンキーの Enter、Run ボタン、または右クリック → Run Selection or File |
 | 開かずにファイルを実行 | ツリーのファイルにカーソルを乗せると右端に出る ▶ |
 
 選択範囲があればその部分だけを、無ければファイル全体を実行します。
@@ -59,6 +59,7 @@ maya_code_editor.show_ui()
 | ツリーを隠す / 出す | Ctrl+B、境界線をダブルクリック、または境界線を左端までドラッグ |
 | ターミナルを隠す / 出す | ツールバーの Terminal ボタン |
 | ターミナルをクリア | ツールバーのゴミ箱ボタン、またはターミナルの右クリック → Clear History |
+| ターミナルの長い行を折り返す | ターミナルの右クリック → Wrap Lines |
 | 折り返しの切替 | Alt+Z |
 | コマンドパレット | F1 |
 
@@ -82,7 +83,7 @@ maya_code_editor.show_ui()
 ```json
 {
   "editor": { "theme": "dark-modern", "fontSize": 13, "tabSize": 4, "wordWrap": "off", "minimap": true },
-  "terminal": { "echoAllCommands": false, "showStackTrace": true }
+  "terminal": { "echoAllCommands": false, "showStackTrace": true, "wrapLines": false }
 }
 ```
 

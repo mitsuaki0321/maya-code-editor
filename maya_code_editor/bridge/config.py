@@ -36,6 +36,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "terminal": {
         "echoAllCommands": False,
         "showStackTrace": True,
+        "wrapLines": False,
     },
 }
 

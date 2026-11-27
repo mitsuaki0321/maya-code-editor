@@ -365,7 +365,7 @@
     // Registered as actions so they also appear in the command palette (F1).
     const K = monaco.KeyMod, C = monaco.KeyCode;
     const ACTIONS = [
-      { id: "mce.run", label: "Maya: Run Selection or File", keybindings: [K.CtrlCmd | C.Enter], run: runActive },
+      { id: "mce.run", label: "Maya: Run Selection or File", keybindings: [K.CtrlCmd | C.Enter], contextMenuGroupId: "navigation", contextMenuOrder: 0, run: runActive },
       { id: "mce.save", label: "Maya: Save File", keybindings: [K.CtrlCmd | C.KeyS], run: saveActive },
       { id: "mce.newFile", label: "Maya: New Untitled File", keybindings: [K.CtrlCmd | C.KeyN], run: function () { tabs.newUntitled(); } },
       { id: "mce.closeTab", label: "Maya: Close Tab", keybindings: [K.CtrlCmd | C.KeyW], run: function () { tabs.close(); } },

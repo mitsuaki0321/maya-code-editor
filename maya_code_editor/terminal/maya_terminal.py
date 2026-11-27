@@ -18,6 +18,7 @@ from ..qt import (
     QMenu,
     QSizePolicy,
     Qt,
+    QPlainTextEdit,
     QVBoxLayout,
     QWidget,
     exec_,
@@ -42,13 +43,14 @@ class MayaTerminal(QWidget):
     """Widget embedding Maya's ``cmdScrollFieldReporter``.
 
     The right-click menu carries the Script Editor's History toggles
-    (Echo All Commands, Show Stack Trace) next to Copy / Clear, so the
-    pane itself stays free of chrome.
+    (Echo All Commands, Show Stack Trace) and a Wrap Lines toggle next to
+    Copy / Clear, so the pane itself stays free of chrome.
 
     Args:
         parent: Parent widget.
         echo_all_commands: Initial state of the Echo All Commands toggle.
         show_stack_trace: Initial state of the Show Stack Trace toggle.
+        wrap_lines: Initial state of the Wrap Lines toggle.
     """
 
     def __init__(
@@ -56,6 +58,7 @@ class MayaTerminal(QWidget):
         parent: Optional[QWidget] = None,
         echo_all_commands: bool = False,
         show_stack_trace: bool = True,
+        wrap_lines: bool = False,
     ) -> None:
         super().__init__(parent)
         self.reporter: Optional[str] = None
@@ -63,6 +66,7 @@ class MayaTerminal(QWidget):
         self.reporter_widget: Optional[QWidget] = None
         self._echo_all_commands = echo_all_commands
         self._show_stack_trace = show_stack_trace
+        self._wrap_lines = wrap_lines
 
         # Checkable actions live on the widget so the context menu can reuse them.
         self.echo_action = QAction("Echo All Commands", self, checkable=True)
@@ -71,6 +75,9 @@ class MayaTerminal(QWidget):
         self.stack_trace_action = QAction("Show Stack Trace", self, checkable=True)
         self.stack_trace_action.setChecked(show_stack_trace)
         self.stack_trace_action.toggled.connect(self.set_show_stack_trace)
+        self.wrap_action = QAction("Wrap Lines", self, checkable=True)
+        self.wrap_action.setChecked(wrap_lines)
+        self.wrap_action.toggled.connect(self.set_wrap_lines)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -94,6 +101,34 @@ class MayaTerminal(QWidget):
         if self._reporter_exists():
             cmds.cmdScrollFieldReporter(self.reporter, edit=True, stackTrace=enabled)
         config.update_setting("terminal", "showStackTrace", enabled)
+
+    def set_wrap_lines(self, enabled: bool) -> None:
+        """Wrap long lines at the right edge of the reporter and remember it."""
+        self._wrap_lines = enabled
+        self._apply_wrap_lines()
+        config.update_setting("terminal", "wrapLines", enabled)
+
+    def _apply_wrap_lines(self) -> None:
+        """Push the current Wrap Lines state to the reporter.
+
+        Maya's reporter control is a ``QPlainTextEdit`` subclass, so the
+        wrapper is re-created with that type to reach ``setLineWrapMode``.
+        """
+        widget = self.reporter_qwidget()
+        if widget is None:
+            return
+        if not widget.inherits("QPlainTextEdit"):
+            logger.warning("reporter widget is not a QPlainTextEdit; cannot wrap lines")
+            return
+        text_edit = wrapInstance(
+            int(omui.MQtUtil.findControl(self.reporter)), QPlainTextEdit
+        )
+        mode = (
+            QPlainTextEdit.LineWrapMode.WidgetWidth
+            if self._wrap_lines
+            else QPlainTextEdit.LineWrapMode.NoWrap
+        )
+        text_edit.setLineWrapMode(mode)
 
     def _setup_reporter(self, layout: QVBoxLayout) -> None:
         """Create the reporter in a hidden Maya window and reparent its Qt widget."""
@@ -136,6 +171,7 @@ class MayaTerminal(QWidget):
         layout.addWidget(widget)
         widget.setVisible(True)
         self.reporter_widget = widget
+        self._apply_wrap_lines()
 
     def reporter_qwidget(self) -> Optional[QWidget]:
         """Return a live Python wrapper for the reporter's Qt widget.
@@ -176,6 +212,8 @@ class MayaTerminal(QWidget):
         menu.addSeparator()
         menu.addAction(self.echo_action)
         menu.addAction(self.stack_trace_action)
+        menu.addSeparator()
+        menu.addAction(self.wrap_action)
 
         exec_(menu, QCursor.pos())
 
